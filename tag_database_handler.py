@@ -17,14 +17,18 @@ for the tag database. Vector indices are paired with matching named json diction
 The module provides the following functions:
 
 - def load_model(model_name): Loads the SentenceTransformer model with the given name from the Hugging Face model hub.
+    return: SentenceTransformer object
 - def create_database(title): Creates a new database with the given title and returns True if the database was created, False if it already exists.
+    return: bool
 - def delete_database(title): Deletes the database with the given title and returns True if the database was deleted, False if it didn't exist.
+    return: bool
 - def add_entry_to_database(title, embedding, tag): Adds an entry to the database with the given title.
-    returns True if the entry was added, False if the database didn't exist.
-- def get_nearest_neighbors(title, embedding, tag, k=20): Returns the k nearest neighbors to the given tag in the database with the given title.
-    returns a list of lists of tags.
+    return: bool
+- def get_nearest_neighbors(title, embedding, tag, k=20): Returns the k nearest neighbors to the given tag(s) in the database with the given title.
+    return: [[str]]
 - def delete_entry_from_database(title, tags): Deletes the given tags from the database with the given title. Will remove the tag from 
     the index and the json tag map.
+    return: None
 '''
 
 def download_model(model_name):
