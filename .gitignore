@@ -3,3 +3,7 @@ databases/
 
 # Ignore model files
 models/
+
+# Ignore pycache
+__pycache__/
+
