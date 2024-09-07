@@ -3,13 +3,12 @@ import sqlite3
 import uuid
 from datetime import datetime
 
-DATABASE_DIR = './database/docs'
+DATABASE_DIR = './databases/docs'
 
 '''
 The SQL doc database handler module for agentic database. Provides simple operations with some specificity to the 
 system as a whole (such as table creation). The module provides the following functions:
 
-- create_database_dir: creates the database directory if it does not exist.
 - create_database: creates a new database with the given title and returns the path to the database file.
     return: str
 
@@ -24,8 +23,9 @@ system as a whole (such as table creation). The module provides the following fu
     return: bool
 - get_all_tags: returns a list of all tags in the database with the given file name.
     return: [str] | None
-- get_document_uuid_from_tag: returns a list of document UUIDs that have the given tag.
-    return: [str] | None
+- get_document_uuid_tags_from_tag: returns a list of document UUIDs and a list of of tags that have the given tag(s).
+TODO: returns duplicate uuids if multiple tags match that doc, calling function should handle this.
+    return: [str], [str] | None
 - get_document_text_from_uuid: returns the text of the document with the given UUID.
     return: str | None
 - get_original_document_from_document_uuid: returns the original document of the document with the given UUID.
@@ -79,7 +79,7 @@ def create_database(title):
     cursor.execute('''
     CREATE TABLE tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tag TEXT UNIQUE
+        tag TEXT UNIQUE,
         instances INTEGER DEFAULT 0
     )''')
     
@@ -107,7 +107,7 @@ def create_database(title):
     conn.commit()
     conn.close()
     
-    return db_path
+    return db_uuid
 
 def get_existing_databases():
     databases = []
@@ -163,7 +163,7 @@ def delete_database(db_file):
     else:
         return False
     
-def add_entry_to_database(db_file, text, pdf, youtube_url, document_type, sub_docs):
+def add_entry_to_database(db_file, text, sub_docs, pdf="null", youtube_url="null", document_type="text"):
     db_path = os.path.join(DATABASE_DIR, db_file)
     
     if os.path.exists(db_path):
@@ -226,36 +226,47 @@ def get_all_tags(db_file):
         return None
 
 # tag may be a string or a list of strings
-def get_document_uuid_from_tag(db_file, tag):
+def get_document_uuid_tags_from_tag(db_file, tag):
     db_path = os.path.join(DATABASE_DIR, db_file)
     
     if os.path.exists(db_path):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
+        uuids = []
+        tags_matched = []
+
         if isinstance(tag, str):  # single tag
             cursor.execute('''
-            SELECT documents.uuid FROM documents
+            SELECT documents.uuid, tags.tag FROM documents
             JOIN document_tags ON documents.uuid = document_tags.document_uuid
             JOIN tags ON document_tags.tag_id = tags.id
             WHERE tags.tag = ?
             ''', (tag,))
+            results = cursor.fetchall()
+            for row in results:
+                uuids.append(row[0])
+                tags_matched.append(row[1])
+        
         elif isinstance(tag, list):  # list of tags
             placeholder = ', '.join(['?'] * len(tag))
             query = f'''
-            SELECT documents.uuid FROM documents
+            SELECT documents.uuid, tags.tag FROM documents
             JOIN document_tags ON documents.uuid = document_tags.document_uuid
             JOIN tags ON document_tags.tag_id = tags.id
             WHERE tags.tag IN ({placeholder})
             '''
             cursor.execute(query, tuple(tag))
+            results = cursor.fetchall()
+            for row in results:
+                uuids.append(row[0])
+                tags_matched.append(row[1])
 
-        uuids = cursor.fetchall()
         conn.close()
 
-        return [uuid[0] for uuid in uuids] if uuids else []
+        return uuids, tags_matched
     else:
-        return None
+        return None, None
 
 def get_document_text_from_uuid(db_file, uuid):
     db_path = os.path.join(DATABASE_DIR, db_file)
@@ -319,7 +330,7 @@ def get_original_documents_from_textual_match(db_file, matching_text):
         cursor = conn.cursor()
 
         cursor.execute('''
-        SELECT text, pdf, youtube_url, document_type 
+        SELECT uuid, text, pdf, youtube_url, document_type 
         FROM original_documents 
         WHERE text LIKE ?
         ''', ('%' + matching_text + '%',))
