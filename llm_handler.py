@@ -72,7 +72,7 @@ roadmap_schema = {
 class LLMHandler:
 
     #singleton model
-    model = None
+    _model = None
                               
     def __init__(self):
         if not os.path.exists(model_file):
@@ -86,19 +86,19 @@ class LLMHandler:
         generic_tag_grammar = llama_cpp.LlamaGrammar.from_string(generic_tag_grammar_text)
 
     def get_model(self):
-        if self.model is None:
-            self.model = llama_cpp.Llama(model_file,
+        if self._model is None:
+            self._model = llama_cpp.Llama(model_file,
                                             n_gpu_layers=-1,
                                             n_ctx=30000,
                                             flash_attn=True,
                                             type_k=8,
                                             type_v=8,
                                         )
-        return self.model
+        return self._model
         
     def release_model(self):
-        del self.model
-        self.model = None
+        del self._model
+        self._model = None
     
     def get_token_count(self, text):
         model = self.get_model()

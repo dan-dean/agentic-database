@@ -9,34 +9,34 @@ DATABASE_DIR = './database/docs'
 The SQL doc database handler module for agentic database. Provides simple operations with some specificity to the 
 system as a whole (such as table creation). The module provides the following functions:
 
-- create_database_dir: Creates the database directory if it does not exist.
-- create_database: Creates a new database with the given title and returns the path to the database file.
+- create_database_dir: creates the database directory if it does not exist.
+- create_database: creates a new database with the given title and returns the path to the database file.
     return: str
 
-- get_existing_databases: Returns a list of existing databases with their metadata.
+- get_existing_databases: returns a list of existing databases with their metadata.
     return: [{'file': str, 'last_modified': str, 'title': str}]
-- update_database_title: Updates the title of the database with the given file name.
+- update_database_title: updates the title of the database with the given file name.
     return: bool
-- delete_database: Deletes the database with the given file name.
+- delete_database: deletes the database with the given file name.
     return: bool
 
-- add_entry_to_database: Adds an entry to the database with the given file name. Increments all tag instances.
+- add_entry_to_database: adds an entry to the database with the given file name. Increments all tag instances.
     return: bool
-- get_all_tags: Returns a list of all tags in the database with the given file name.
+- get_all_tags: returns a list of all tags in the database with the given file name.
     return: [str] | None
-- get_document_uuid_from_tag: Returns a list of document UUIDs that have the given tag.
+- get_document_uuid_from_tag: returns a list of document UUIDs that have the given tag.
     return: [str] | None
-- get_document_text_from_uuid: Returns the text of the document with the given UUID.
+- get_document_text_from_uuid: returns the text of the document with the given UUID.
     return: str | None
-- get_original_document_from_document_uuid: Returns the original document of the document with the given UUID.
+- get_original_document_from_document_uuid: returns the original document of the document with the given UUID.
     return: (str, str, str, str) | None
 
-- get_original_documents_from_textual_match: Returns a list of original documents that contain the given text.
+- get_original_documents_from_textual_match: returns a list of original documents that contain the given text.
     return: [(str, str, str, str)] | None
 
-- get_documents_uuids_from_original_document: Returns a list of document UUIDs that are derived from the original document with the given UUID.
+- get_documents_uuids_from_original_document: returns a list of document UUIDs that are derived from the original document with the given UUID.
     return: [str] | None
-- remove_original_document: Removes the original document with the given UUID from the database with the given file name.
+- remove_original_document: removes the original document with the given UUID from the database with the given file name.
     It is a deep delete, removing all sub-documents as well. Also removes all tags associated with the document that 
     hit zero instances. Returns a list of tags that were deleted or None if the document didn't exist.
     return: [str] | None
