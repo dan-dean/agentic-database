@@ -1,9 +1,9 @@
 import time
 from doc_database_handler import *
 
-# db_name = create_database("test_db_cs")
+db_name = create_database("test_db_cs")
 
-# print(db_name)
+print(db_name)
 
 databases = get_existing_databases()
 first_db = databases[0]
@@ -110,9 +110,9 @@ software_engineering_subdocs = [
     ]
 ]
 
-# add_entry_to_database(first_db['file'], text=cloud_compute_text, sub_docs=cloud_compute_subdocs, document_type="text")
-# add_entry_to_database(first_db['file'], text=academia_text, sub_docs=academia_subdocs, document_type="text")
-# add_entry_to_database(first_db['file'], text=software_engineering_text, sub_docs=software_engineering_subdocs, document_type="text")
+add_entry_to_database(first_db['file'], text=cloud_compute_text, sub_docs=cloud_compute_subdocs, document_type="text")
+add_entry_to_database(first_db['file'], text=academia_text, sub_docs=academia_subdocs, document_type="text")
+add_entry_to_database(first_db['file'], text=software_engineering_text, sub_docs=software_engineering_subdocs, document_type="text")
 
 db_tags = get_all_tags(first_db['file'])
 
@@ -164,4 +164,112 @@ print(original_documents)
 print("tag removal test")
 print(get_all_tags(first_db['file']))
 
-# TODO: 90% functional so far, just also check if tag stacking works and won't prematurely remove tags that still have subdocs
+print("clearing database test")
+delete_database(first_db['file'])
+
+# show no databases exist
+databases = get_existing_databases()
+print("database count: " + str(len(databases)))
+
+# test tag stacking
+# First original document about DevOps pipeline and automated testing
+devops_1_text = """
+The DevOps pipeline is a crucial aspect of modern software development, streamlining the process from code commit to deployment. It enables continuous integration and delivery, ensuring that software updates are tested and deployed efficiently. By automating many of the steps in the development lifecycle, the DevOps pipeline helps reduce human error and speeds up the release of new features and fixes.
+
+Automated testing is an essential part of modern software development. It involves running tests automatically after each code change to ensure that the software remains functional and free from bugs. Automated testing reduces the time required for manual testing and provides fast feedback to developers, allowing issues to be addressed before they reach production.
+"""
+
+# First document's sub-docs
+devops_1_subdocs = [
+    [
+        "The DevOps pipeline is a streamlined approach to software development, focusing on continuous integration and delivery. It automates many steps, reducing human error and ensuring faster deployment.", 
+        ["devops_pipeline", "continuous_integration", "continuous_delivery", "automation"]
+    ],
+    [
+        "Automated testing is a critical practice in software engineering, ensuring that code changes are tested quickly and efficiently. This reduces manual testing time and helps identify issues early in the development cycle.", 
+        ["automated_testing", "software_testing", "testing_automation", "fast_feedback"]
+    ]
+]
+
+# Second original document about DevOps pipeline and infrastructure as code
+devops_2_text = """
+The DevOps pipeline integrates tools and practices that automate the flow of software from development to production. With continuous integration and continuous delivery, the pipeline ensures that code is always in a deployable state. This automation enhances collaboration between development and operations teams and speeds up the deployment process, reducing downtime and improving system reliability.
+
+Infrastructure as code (IaC) is another key element of modern DevOps practices. IaC involves managing and provisioning computing resources through machine-readable scripts rather than physical hardware configurations. By codifying infrastructure, teams can automate the setup of environments, ensuring consistency across development, testing, and production stages.
+"""
+
+# Second document's sub-docs
+devops_2_subdocs = [
+    [
+        "The DevOps pipeline is a key practice that automates the process of moving code from development to production, enabling continuous integration and delivery. This improves collaboration between development and operations teams.", 
+        ["devops_pipeline", "continuous_integration", "continuous_delivery", "collaboration"]
+    ],
+    [
+        "Infrastructure as code (IaC) allows teams to manage infrastructure through code, enabling automated environment setup. This ensures consistent and repeatable deployments across different environments.", 
+        ["infrastructure_as_code", "iac", "automated_infrastructure", "consistent_deployment"]
+    ]
+]
+
+db_name = create_database("test_db_devops")
+
+
+
+add_entry_to_database(db_name, text=devops_1_text, sub_docs=devops_1_subdocs, document_type="text")
+add_entry_to_database(db_name, text=devops_2_text, sub_docs=devops_2_subdocs, document_type="text")
+
+# Check if the tags are present
+db_tags = get_all_tags(db_name)
+print(db_tags)
+
+#show doc counts
+print("# of original documents: " + str(get_number_of_original_documents(db_name)))
+print("# of sub-documents: " + str(get_number_of_documents(db_name)))
+
+print("deleting one original document")
+original_documents = get_original_documents_from_textual_match(db_name, "The DevOps pipeline is a crucial aspect of modern software development")
+
+remove_original_document(db_name, original_documents[0][0])
+
+print("# of original documents: " + str(get_number_of_original_documents(db_name)))
+print("# of sub-documents: " + str(get_number_of_documents(db_name)))
+
+print("tags after deletion, devops_pipeline should still be present")
+print(get_all_tags(db_name))
+print("deleting the other original document")
+original_documents = get_original_documents_from_textual_match(db_name, "The DevOps pipeline integrates tools and practices that automate the")
+
+remove_original_document(db_name, original_documents[0][0])
+
+print("# of original documents: " + str(get_number_of_original_documents(db_name)))
+print("# of sub-documents: " + str(get_number_of_documents(db_name)))
+
+print("tags after deletion, devops_pipeline should be gone")
+print(get_all_tags(db_name))
+
+print("adding files back, testing tag retrieval")
+add_entry_to_database(db_name, text=devops_1_text, sub_docs=devops_1_subdocs, document_type="text")
+add_entry_to_database(db_name, text=devops_2_text, sub_docs=devops_2_subdocs, document_type="text")
+
+tagged_docs = get_all_document_uuids_from_tag(db_name, "devops_pipeline")
+ 
+print("tagged docs devops_pipeline")
+print(tagged_docs)
+
+tagged_docs = get_all_document_uuids_from_tag(db_name, "infrastructure_as_code")
+
+print("tagged docs infrastructure_as_code")
+print(tagged_docs)
+
+print("testing tags from uuid retrieval")
+
+tags = get_tags_from_document_uuid(db_name, tagged_docs[0])
+
+print("tags from uuid")
+print(tags)
+
+
+
+
+print("clearing database...")
+delete_database(db_name)
+

@@ -107,7 +107,7 @@ def create_database(title):
     conn.commit()
     conn.close()
     
-    return db_uuid
+    return db_uuid + ".db"
 
 def get_existing_databases():
     databases = []
@@ -439,3 +439,83 @@ def remove_original_document(db_file, original_uuid):
             conn.close()
             return all_deleted_tags
         return None
+    
+def get_all_document_uuids_from_tag(db_file, tag):
+        db_path = os.path.join(DATABASE_DIR, db_file)
+        
+        if os.path.exists(db_path):
+            if isinstance(tag, str):
+                tag = [tag]
+
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            placeholder = ', '.join(['?'] * len(tag))
+            query = f'''
+            SELECT documents.uuid FROM documents
+            JOIN document_tags ON documents.uuid = document_tags.document_uuid
+            JOIN tags ON document_tags.tag_id = tags.id
+            WHERE tags.tag IN ({placeholder})
+            '''
+
+            cursor.execute(query, tuple(tag))
+            results = cursor.fetchall()
+            conn.close()
+
+            return [result[0] for result in results]
+        else:
+            return None
+
+def get_tags_from_document_uuid(db_file, uuid):
+    db_path = os.path.join(DATABASE_DIR, db_file)
+    
+    if os.path.exists(db_path):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+        SELECT tags.tag FROM document_tags
+        JOIN tags ON document_tags.tag_id = tags.id
+        WHERE document_tags.document_uuid = ?
+        ''', (uuid,))
+        tags = cursor.fetchall()
+        conn.close()
+
+        return [tag[0] for tag in tags]
+    else:
+        return None
+    
+def get_number_of_original_documents(db_file):
+    db_path = os.path.join(DATABASE_DIR, db_file)
+    
+    if os.path.exists(db_path):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+        SELECT COUNT(*) FROM original_documents
+        ''')
+        count = cursor.fetchone()[0]
+        conn.close()
+
+        return count
+    else:
+        return None
+    
+def get_number_of_documents(db_file):
+    db_path = os.path.join(DATABASE_DIR, db_file)
+    
+    if os.path.exists(db_path):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+        SELECT COUNT(*) FROM documents
+        ''')
+        count = cursor.fetchone()[0]
+        conn.close()
+
+        return count
+    else:
+        return None
+    

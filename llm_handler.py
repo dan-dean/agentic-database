@@ -69,6 +69,55 @@ roadmap_schema = {
   "required": ["steps"]
 }
 
+subject_list_schema = {
+    "type": "object",
+    "properties": {
+        "subjects": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "subject": {
+                        "type": "string",
+                        "description": "A subject or concept found in the document."
+                    }
+                },
+                "required": ["subject"]
+            }
+        }
+    },
+    "required": ["subjects"]
+}
+
+subdoc_schema = {
+    "type": "object",
+    "properties": {
+        "subdocs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "subdoc_text": {
+                        "type": "string",
+                        "description": "The subdoc text, mostly quoting from the source with minimal paraphrasing."
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9_]+$",
+                            "description": "A tag describing the subject or concept found in the subdoc."
+                        },
+                        "minItems": 1
+                    }
+                },
+                "required": ["subdoc_text", "tags"]
+            }
+        }
+    },
+    "required": ["subdocs"]
+}
+
 class LLMHandler:
 
     #singleton model
@@ -85,7 +134,8 @@ class LLMHandler:
 
         generic_tag_grammar = llama_cpp.LlamaGrammar.from_string(generic_tag_grammar_text)
 
-    def get_model(self):
+#TODO: add big vs small model selection and figure out where smaller models could be used in functionality.
+    def get_model(self, size="big"):
         if self._model is None:
             self._model = llama_cpp.Llama(model_file,
                                             n_gpu_layers=-1,
@@ -210,9 +260,47 @@ class LLMHandler:
 
         return response["choices"][0]["message"]["content"]
     
+    
+    def break_up_and_summarize_text(self, text):
+        model = self.get_model()
+        
+        system_prompt_subjects = '''You are provided with a document. Your task is to identify the major one or more subjects or concepts present in the document.
+        List each subject or concept found in the document as a JSON array. Do not explain them. The subjects should be concise and accurately describe topics found in the text.'''
 
+        subject_response = model.create_chat_completion(
+            messages=[
+                {"role": "user", "content": text},
+                {"role": "system", "content": system_prompt_subjects}
+            ],
+            response_format={"type": "json_object", "schema": subject_list_schema}
+        )
 
+        subject_list = json.loads(subject_response["choices"][0]["message"]["content"])["subjects"]
 
+        subdocs = []
+        for subject_item in subject_list:
+            subject = subject_item["subject"]
+            
+            system_prompt_subdoc = f'''You are tasked with creating a sub-document for the subject: "{subject}". The sub-doc should mostly quote the original text,
+            but you may paraphrase if necessary to abridge or clarify. It should explain the named subject in its entirety. Make sure not to add any external information that isn't found in the original document. 
+            Include only the text relevant to the subject. Do not lose any details. After the sub-document text, list the tags that describe the subject or concept found in the sub-document.
+            List only the tags that describe the contents of this sub-document. Tags are lowercase alphanumeric strings with underscores. Do not include any tags that about things elsewhere in the source text.'''
+            
+            subdoc_response = model.create_chat_completion(
+                messages=[
+                    {"role": "user", "content": text},
+                    {"role": "system", "content": system_prompt_subdoc}
+                ],
+                response_format={"type": "json_object", "schema": subdoc_schema}
+            )
+
+            subdoc_data = json.loads(subdoc_response["choices"][0]["message"]["content"])
+            subdocs.append({
+                "subdoc_text": subdoc_data["subdoc_text"],
+                "tags": subdoc_data["tags"]
+            })
+
+        return subdocs
 
 
 
