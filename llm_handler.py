@@ -4,8 +4,7 @@ import os
 import json
 
 MODELS_DIR = "./models/llm"
-model_name = "lmstudio"
-model_file = os.path.join(MODELS_DIR, "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf")
+model_file_name = os.path.join(MODELS_DIR, "model_file_name.json")
 
 '''
 The LLMHandler class is a wrapper for the LLM model. It provides methods to interact with the model relevant to the larger agentic database use case
@@ -39,8 +38,9 @@ a list of tags to search for and an explanation of the query.
 '''
 
 generic_tag_grammar_text = """
-tag ::= (alphanumeric | "_")+
+root ::= tags
 tags ::= tag ("," tag)*
+tag ::= alphanumeric | "_"
 alphanumeric ::= [a-zA-Z0-9]+
 """
 
@@ -122,27 +122,37 @@ class LLMHandler:
 
     #singleton model
     _model = None
+    generic_tag_grammar = None
                               
     def __init__(self):
-        if not os.path.exists(model_file):
+        if not os.path.exists(model_file_name):
             print("Downloading model...")
-            hf_hub_download(repo_id="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", 
+            llama_large_location = hf_hub_download(repo_id="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", 
                             filename="Meta-Llama-3.1-8B-Instruct-Q8_0.gguf", 
                             cache_dir=MODELS_DIR)
+
+            #store model location in a json file
+            model_json = {"model_file": llama_large_location}
+            with open(model_file_name, "w") as f:
+                json.dump(model_json, f)
         else:
             print("Model already downloaded.")
 
-        generic_tag_grammar = llama_cpp.LlamaGrammar.from_string(generic_tag_grammar_text)
+        self.generic_tag_grammar = llama_cpp.LlamaGrammar.from_string(generic_tag_grammar_text)
 
 #TODO: add big vs small model selection and figure out where smaller models could be used in functionality.
     def get_model(self, size="big"):
         if self._model is None:
-            self._model = llama_cpp.Llama(model_file,
+            with open(model_file_name, "r") as f:
+                model_json = json.load(f)
+                model_file = model_json["model_file"]
+            self._model = llama_cpp.Llama("models\llm\models--lmstudio-community--Meta-Llama-3.1-8B-Instruct-GGUF\snapshots\8601e6db71269a2b12255ebdf09ab75becf22cc8\Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
                                             n_gpu_layers=-1,
                                             n_ctx=30000,
                                             flash_attn=True,
                                             type_k=8,
                                             type_v=8,
+                                            verbose=False
                                         )
         return self._model
         
@@ -154,41 +164,70 @@ class LLMHandler:
         model = self.get_model()
         text_bytes = text.encode('utf-8')
         return len(model.tokenize(text_bytes))
+    
+    def get_token_sets(self, tags_actual):
+            model = self.get_model()
+            token_sets = []
+            
+            for tag in tags_actual:
+                # Tokenize the tag
+                tokenized_tag = model.tokenize(tag.encode('utf-8'))
+                
+                # Now process the tokenized tag as a sequence of tokens
+                detokenized_tokens = [model.detokenize([token]).decode('utf-8') for token in tokenized_tag]
+                
+                # Append the list of tokens to the token_sets list
+                token_sets.append(detokenized_tokens)
+            
+            return token_sets
 
-    def construct_grammar_from_token_sets(token_sets):
-    # Create grammar rule components for each tokenized tag
+    def construct_grammar_from_token_sets(self, token_sets):
+        # Create grammar rule components for each tokenized tag
         tag_grammar_parts = []
+        
         for token_set in token_sets:
-            # Join tokens as a sequence for each tag (e.g., project_implementation_steps)
-            tag_rule = ' '.join([f'"{token}"' for token in token_set])
+            # Represent each token in the set, ensuring we use explicit token breaks
+            # Tokens should be grouped, not split character by character
+            tag_rule = ' '.join([f'[ {token} ]' for token in token_set])
             tag_grammar_parts.append(f"({tag_rule})")
         
-        # Join the tag rules with commas or allow them to appear individually
+        # Join the tag rules with | for alternation
         grammar_text = f"""
-        tag ::= { ' | '.join(tag_grammar_parts) }
+        root ::= tags
         tags ::= tag ("," tag)*
+        tag ::= {' | '.join(tag_grammar_parts)}
         """
+        
         return grammar_text
 
 
     def return_relevant_tags(self, text, tags_actual):
         model = self.get_model()
-        #add a nothing tag to tags_actual for a no-match
-        tags_nothing = tags_actual + "nothing"
-        grammar_text = self.construct_grammar_from_token_sets(tags_nothing)
+        
+        # Ensure tags_actual is a list of token sets and include a "nothing" tag option
+        token_sets = self.get_token_sets(tags_actual)  # Split tags into tokens
+        token_sets.append(["nothing"])  # Add the "nothing" tag
+
+        print(token_sets)
+        
+        # Generate the grammar from token sets
+        grammar_text = self.construct_grammar_from_token_sets(token_sets)
 
         token_grammar = llama_cpp.LlamaGrammar.from_string(grammar_text)
 
         prompt = '''Given the following text and a list of possibly relevant valid tags in our database,
-        return only the tag or tags that are relevant to the text and would point towards documents in the database 
-        that would help answer the prompt. You should return a commma delimited list. If none are applicable, return 'nothing'.\nText:\n'''
+        return only the tag or tags that are relevant to the prompt being asked and may point towards documents in the database 
+        that would help answer the prompt. You are not trying to make a judgement call or answer the question. You should return a comma delimited list. 
+        If none are applicable, return 'nothing'.\nText:\n'''
 
-        constructed_prompt = prompt + text + "\nHere are the possibly relevant tags:\n" + tags_actual + "\n These are the actually relevant tags: \n"
+        constructed_prompt = prompt + text + "\nHere are the possibly relevant tags:\n" + ', '.join(tags_actual) + "\nThese are the actually relevant tags: \n"
 
-        output_str = model(constructed_prompt, grammar=token_grammar)
+        output = model(constructed_prompt, grammar=token_grammar)
+        
+        output_str = output["choices"][0]["text"]
 
         valid_tags = output_str.split(",")
-    
+        
         return valid_tags
     
     def generate_tags(self, text):
@@ -199,7 +238,10 @@ class LLMHandler:
 
         constructed_prompt = prompt + text + "\nrelevant tags describing the contents, subjects, and concepts in the text:\n"
 
-        output_str = model(constructed_prompt, grammar=self.generic_tag_grammar)
+        output = model(constructed_prompt, grammar=self.generic_tag_grammar)
+
+        print(output)
+        output_str = output["choices"][0]["text"]
 
         text_tags = output_str.split(",")
 
@@ -265,8 +307,13 @@ class LLMHandler:
         model = self.get_model()
         
         system_prompt_subjects = '''You are provided with a document. Your task is to identify the major one or more subjects or concepts present in the document.
-        List each subject or concept found in the document as a JSON array. Do not explain them. The subjects should be concise and accurately describe topics found in the text.'''
+        List each subject or concept found in the document as a JSON array. Do not explain them. The subjects should be concise and accurately describe topics found in the text.
+        Subjects should be as if you had to chunk up the given document into discrete chapters or topics. Not every single word or term needs to be its own subject.
+        Avoid redundancy in similar subjects. If a subject is a subset of another subject, only list the broader subject. Like if 
+        the document mentions serverless functions and then goes on to explain AWS Lambda, you would only list serverless functions as a subject, as that topic covers Lambda.
+        You're not trying to reach a word count, think more in broad strokes, don't add every single detail or vocab word as a subject.'''
 
+        # First, identify the subjects in the text
         subject_response = model.create_chat_completion(
             messages=[
                 {"role": "user", "content": text},
@@ -278,26 +325,43 @@ class LLMHandler:
         subject_list = json.loads(subject_response["choices"][0]["message"]["content"])["subjects"]
 
         subdocs = []
+        message_history = []  # Store previous LLM responses for context
+
         for subject_item in subject_list:
             subject = subject_item["subject"]
             
             system_prompt_subdoc = f'''You are tasked with creating a sub-document for the subject: "{subject}". The sub-doc should mostly quote the original text,
             but you may paraphrase if necessary to abridge or clarify. It should explain the named subject in its entirety. Make sure not to add any external information that isn't found in the original document. 
-            Include only the text relevant to the subject. Do not lose any details. After the sub-document text, list the tags that describe the subject or concept found in the sub-document.
+            Include only the text relevant to the subject. After the sub-document text, list the tags that describe the subject or concept found in the sub-document.
             List only the tags that describe the contents of this sub-document. Tags are lowercase alphanumeric strings with underscores. Do not include any tags that about things elsewhere in the source text.'''
+
+            # Build the messages, including the history
+            messages = [
+                {"role": "user", "content": text},
+                {"role": "system", "content": system_prompt_subdoc}
+            ]
             
+            # Append the message history from previous iterations
+            messages.extend(message_history)
+
+            # Generate sub-document for this subject
             subdoc_response = model.create_chat_completion(
-                messages=[
-                    {"role": "user", "content": text},
-                    {"role": "system", "content": system_prompt_subdoc}
-                ],
+                messages=messages,
                 response_format={"type": "json_object", "schema": subdoc_schema}
             )
 
             subdoc_data = json.loads(subdoc_response["choices"][0]["message"]["content"])
-            subdocs.append({
-                "subdoc_text": subdoc_data["subdoc_text"],
-                "tags": subdoc_data["tags"]
+
+            for subdoc in subdoc_data["subdocs"]:
+                subdocs.append({
+                    "subdoc_text": subdoc["subdoc_text"],
+                    "tags": subdoc["tags"]
+                })
+
+            # Add this response to the message history for context in the next loop
+            message_history.append({
+                "role": "assistant",
+                "content": subdoc_response["choices"][0]["message"]["content"]
             })
 
         return subdocs
