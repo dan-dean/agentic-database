@@ -46,4 +46,20 @@ selected_tags_cloud = llm_handler.return_relevant_tags(prompt_cloud, cloud_tags)
 print("Selected tags for prompt: ", prompt_cloud)
 print(selected_tags_cloud)
 
+print("testing creating roadmap simple")
+
+roadmap = llm_handler.generate_roadmap(prompt_cloud)
+
+print(roadmap)
+
+print("testing creating roadmap with multiple steps")
+
+prompt_2_step = "How does AWS compare to Azure in terms of services offered?"
+
+roadmap_2_step = llm_handler.generate_roadmap(prompt_2_step)
+
+print(roadmap_2_step)
+
 llm_handler.release_model()
+
+

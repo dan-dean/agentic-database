@@ -1,6 +1,7 @@
 import llama_cpp
 from huggingface_hub import hf_hub_download
 import os
+import contextlib
 import json
 
 MODELS_DIR = "./models/llm"
@@ -137,8 +138,8 @@ class LLMHandler:
                 json.dump(model_json, f)
         else:
             print("Model already downloaded.")
-
-        self.generic_tag_grammar = llama_cpp.LlamaGrammar.from_string(generic_tag_grammar_text)
+        with contextlib.redirect_stdout(open(os.devnull, 'w')), contextlib.redirect_stderr(open(os.devnull, 'w')):
+            self.generic_tag_grammar = llama_cpp.LlamaGrammar.from_string(generic_tag_grammar_text)
 
 #TODO: add big vs small model selection and figure out where smaller models could be used in functionality.
     def get_model(self, size="big"):
@@ -187,7 +188,17 @@ class LLMHandler:
         for token_set in token_sets:
             # Represent each token in the set, ensuring we use explicit token breaks
             tag_rule = ' '.join([f'"{token}"' for token in token_set])
-            tag_grammar_parts
+            tag_grammar_parts.append(f"({tag_rule})")
+        
+        
+        # Join the tag rules with | for alternation
+        grammar_text = f"""
+        root ::= tags
+        tags ::= tag ("," tag)*
+        tag ::= {' | '.join(tag_grammar_parts)}
+        """
+        
+        return grammar_text
 
 
     def return_relevant_tags(self, text, tags_actual):
@@ -197,12 +208,12 @@ class LLMHandler:
         token_sets = self.get_token_sets(tags_actual)  # Split tags into tokens
         token_sets.append(["nothing"])  # Add the "nothing" tag
 
-        print(token_sets)
         
         # Generate the grammar from token sets
         grammar_text = self.construct_grammar_from_token_sets(token_sets)
 
-        token_grammar = llama_cpp.LlamaGrammar.from_string(grammar_text)
+        with contextlib.redirect_stdout(open(os.devnull, 'w')), contextlib.redirect_stderr(open(os.devnull, 'w')):
+            token_grammar = llama_cpp.LlamaGrammar.from_string(grammar_text)
 
         prompt = '''Given the following text and a list of possibly relevant valid tags in our database,
         return only the tag or tags that are relevant to the prompt being asked and may point towards documents in the database 
@@ -216,6 +227,15 @@ class LLMHandler:
         output_str = output["choices"][0]["text"]
 
         valid_tags = output_str.split(",")
+
+        tags_trimmed = []
+
+        for tag in valid_tags:
+            if tag == "nothing":
+                return []
+            if tag in tags_trimmed or tag == "":
+                continue
+            tags_trimmed.append(tag)
         
         return valid_tags
     
@@ -229,7 +249,6 @@ class LLMHandler:
 
         output = model(constructed_prompt, grammar=self.generic_tag_grammar)
 
-        print(output)
         output_str = output["choices"][0]["text"]
 
         text_tags = output_str.split(",")
