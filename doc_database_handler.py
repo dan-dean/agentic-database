@@ -179,9 +179,9 @@ def add_entry_to_database(db_file, text, sub_docs, pdf="null", youtube_url="null
             sub_doc_uuid = str(uuid.uuid4())
             cursor.execute('''
             INSERT INTO documents (uuid, original_uuid, text) VALUES (?, ?, ?)
-            ''', (sub_doc_uuid, uuid_str, sub_doc[0]))
+            ''', (sub_doc_uuid, uuid_str, sub_doc['subdoc_text']))
 
-            for tag in sub_doc[1]:
+            for tag in sub_doc['tags']:
                 cursor.execute('''
                 SELECT id, instances FROM tags WHERE tag = ?
                 ''', (tag,))

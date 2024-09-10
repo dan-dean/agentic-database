@@ -169,6 +169,8 @@ class LLMHandler:
     def get_token_sets(self, tags_actual):
             model = self.get_model()
             token_sets = []
+
+            print("tags_actual: ", tags_actual)
             
             for tag in tags_actual:
                 # Tokenize the tag
@@ -228,6 +230,8 @@ class LLMHandler:
 
         valid_tags = output_str.split(",")
 
+        print("valid tags: ", valid_tags)
+
         tags_trimmed = []
 
         for tag in valid_tags:
@@ -237,7 +241,7 @@ class LLMHandler:
                 continue
             tags_trimmed.append(tag)
         
-        return valid_tags
+        return tags_trimmed
     
     def generate_tags(self, text):
         model = self.get_model()
@@ -289,11 +293,14 @@ class LLMHandler:
         roadmap = [[step["query"].split(","), step["explanation"]] for step in steps]
         return roadmap
     
-    def generate_response_with_context(self, text):
+    def generate_response_with_context(self, text, context):
         model=self.get_model()
         system_prompt = '''You are the culmination of a knowledge base system. Given the retrieved documents from the database focused around a certain domain
         and a user prompt or query, respond to the user to the best of your ability. Use the retrieved data in your answer. If the answer does not lie within
         the provided data, say as much. Be clear, effective, and succint in your responses while also fully explaining requested concepsts.'''
+
+        context_str = "\n".join(context)
+        combined_text = text + "\nContext:\n" + context_str
 
         response = model.create_chat_completion(
             messages=[
@@ -303,7 +310,7 @@ class LLMHandler:
                 },
                 {
                     "role": "user",
-                    "content": text
+                    "content": combined_text
                 }
             ]
         )
@@ -330,7 +337,7 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": subject_list_schema}
         )
 
-        subject_list = json.loads(subject_response["choices"][0]["message"]["content"])["subjects"]
+        subject_list = json.loads(subject_response["choices"][0]["message"]["content"].replace('\n', '\\n'))["subjects"]
 
         subdocs = []
         message_history = []  # Store previous LLM responses for context
@@ -357,13 +364,22 @@ class LLMHandler:
                 messages=messages,
                 response_format={"type": "json_object", "schema": subdoc_schema}
             )
-
-            subdoc_data = json.loads(subdoc_response["choices"][0]["message"]["content"])
+            
+            subdoc_data = json.loads(subdoc_response["choices"][0]["message"]["content"].replace('\n', '\\n'))
 
             for subdoc in subdoc_data["subdocs"]:
+
+                tags_possible = subdoc["tags"]
+                tags_trimmed = []
+                
+                for tag in tags_possible:
+                    if tag in tags_trimmed or tag == "":
+                        continue
+                    tags_trimmed.append(tag)
+
                 subdocs.append({
                     "subdoc_text": subdoc["subdoc_text"],
-                    "tags": subdoc["tags"]
+                    "tags": tags_trimmed
                 })
 
             # Add this response to the message history for context in the next loop

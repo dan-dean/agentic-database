@@ -118,6 +118,7 @@ db_tags = get_all_tags(first_db['file'])
 
 print(db_tags)
 
+print("document uuid tags from tag")
 uuids, tags = get_document_uuid_tags_from_tag(first_db['file'], "live_application")
 print(uuids)
 document_text = get_document_text_from_uuid(first_db['file'], uuids[0])

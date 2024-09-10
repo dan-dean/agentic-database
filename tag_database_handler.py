@@ -20,7 +20,7 @@ The module provides the following functions:
 
 - def get_model(model_name): loads the SentenceTransformer model or retrieves it if it already exists.
     return: SentenceTransformer object
-- def unload_model(model): releases SentenceTransformer model from memory.
+- def release_model(model): releases SentenceTransformer model from memory.
     return: None
 - def create_database(title): creates a new database with the given title and returns True if the database was created, False if it already exists.
     return: bool
@@ -56,7 +56,7 @@ class TagDatabaseHandler:
             self._model.tokenizer.clean_up_tokenization_spaces = True
         return self._model
 
-    def unload_model(self):
+    def release_model(self):
         del self._model
         self._model = None
         gc.collect()
@@ -85,10 +85,12 @@ class TagDatabaseHandler:
     def delete_database(self, title):
         db_path = os.path.join(DATABASE_DIR, f"{title}.bin")
         json_path = os.path.join(DATABASE_DIR, f"{title}-tags.json")
+        deleted_ids_json_path = os.path.join(DATABASE_DIR, f"{title}-deleted-ids.json")
         
         if os.path.exists(db_path):
             os.remove(db_path)
             os.remove(json_path)
+            os.remove(deleted_ids_json_path)
             return True
         return False
 
@@ -129,8 +131,8 @@ class TagDatabaseHandler:
                     index.add_with_ids(np.array([vector]), np.array([reuse_id]))
                     index_id = reuse_id
                 else:
-                    index.add(np.array([vector]))
                     index_id = index.ntotal - 1  # Assign the next available ID
+                    index.add_with_ids(np.array([vector]), index_id)
 
                 index_to_tag[index_id] = t  # Update the tag map with the new ID
 
