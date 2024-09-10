@@ -184,21 +184,10 @@ class LLMHandler:
     def construct_grammar_from_token_sets(self, token_sets):
         # Create grammar rule components for each tokenized tag
         tag_grammar_parts = []
-        
         for token_set in token_sets:
             # Represent each token in the set, ensuring we use explicit token breaks
-            # Tokens should be grouped, not split character by character
-            tag_rule = ' '.join([f'[ {token} ]' for token in token_set])
-            tag_grammar_parts.append(f"({tag_rule})")
-        
-        # Join the tag rules with | for alternation
-        grammar_text = f"""
-        root ::= tags
-        tags ::= tag ("," tag)*
-        tag ::= {' | '.join(tag_grammar_parts)}
-        """
-        
-        return grammar_text
+            tag_rule = ' '.join([f'"{token}"' for token in token_set])
+            tag_grammar_parts
 
 
     def return_relevant_tags(self, text, tags_actual):
