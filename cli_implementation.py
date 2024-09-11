@@ -9,7 +9,7 @@ def help_command():
     print("""
 Available commands:
 - help
-- list_databases
+- list
 - set_default_database [database_number]
 - create_database [database_name]
 - delete_database [database_number]
@@ -37,7 +37,7 @@ def set_default_database(db_number=None):
     databases = async_agentic_database.get_existing_databases()
     
     if db_number in range(len(databases)):
-        default_database = databases[db_number]["db_file"]
+        default_database = databases[db_number]["file"]
         print(f"Default database set to {databases[db_number]["title"]}.")
     else:
         print(f"Database '{db_number}' not found.")
@@ -59,10 +59,12 @@ def delete_database(db_number=None):
 
     if db_number in range(len(databases)):
         confirm = input(f"Are you sure you want to delete database '{databases[db_number]['title']}'? (y/n)")
-        if confirm.lower() != "y":
+        if confirm.lower() == "y":
             db_name = databases[db_number]["title"]
-            async_agentic_database.delete_database(databases[db_number]["db_file"])
+            async_agentic_database.delete_database(databases[db_number]["file"])
             print(f"Database '{db_name}' deleted.")
+        else:
+            print("Deletion cancelled.")
     else:
         print(f"Database '{db_number}' not found.")
 
@@ -77,7 +79,7 @@ def add_document(doc_name=None, db_number=None):
             return
 
     if db_number and 0 <= db_number < len(databases):
-        db_file = databases[db_number]["db_file"]
+        db_file = databases[db_number]["file"]
     else:
         print(f"Database '{db_number}' not found.")
         return
@@ -126,7 +128,7 @@ def send_query(query=None, db_number=None):
             return
 
     if db_number is not None and 0 <= db_number < len(databases):
-        db_file = databases[db_number]["db_file"]
+        db_file = databases[db_number]["file"]
     else:
         if db_number is not None:
             print(f"Database '{db_number}' not found.")
@@ -162,7 +164,7 @@ def start_thread(db_number=None):
             return
 
     if db_number is not None and 0 <= db_number < len(databases):
-        db_file = databases[db_number]["db_file"]
+        db_file = databases[db_number]["file"]
         print(f"Starting thread in database: {databases[db_number]['title']}")
     else:
         if db_number is not None:
@@ -211,7 +213,7 @@ def handle_command(command_input):
     # Match commands
     if command == "help":
         help_command()
-    elif command == "list_databases":
+    elif command == "list":
         list_databases()
     elif command == "set_default_database":
         set_default_database(args[1] if len(args) > 1 else None)

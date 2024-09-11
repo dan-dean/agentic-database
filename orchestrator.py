@@ -21,6 +21,7 @@ class Orchestrator:
         return update_database_title(db_file, new_title)
     
     def delete_database(self, db_file):
+        TagDatabaseHandler().delete_database(db_file)
         return delete_database(db_file)
     
     def create_database(self, title):

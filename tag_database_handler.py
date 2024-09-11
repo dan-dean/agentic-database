@@ -91,7 +91,8 @@ class TagDatabaseHandler:
         if os.path.exists(db_path):
             os.remove(db_path)
             os.remove(json_path)
-            os.remove(deleted_ids_json_path)
+            if os.path.exists(deleted_ids_json_path):
+                os.remove(deleted_ids_json_path)
             return True
         return False
 
