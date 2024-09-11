@@ -24,7 +24,6 @@ system as a whole (such as table creation). The module provides the following fu
 - get_all_tags: returns a list of all tags in the database with the given file name.
     return: [str] | None
 - get_document_uuid_tags_from_tag: returns a list of document UUIDs and a list of of tags that have the given tag(s).
-TODO: returns duplicate uuids if multiple tags match that doc, calling function should handle this.
     return: [str], [str] | None
 - get_document_text_from_uuid: returns the text of the document with the given UUID.
     return: str | None

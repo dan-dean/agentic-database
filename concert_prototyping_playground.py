@@ -106,11 +106,11 @@ try:
 
         print("creating roadmap")
 
-        roadmap_2_step = llm_handler.generate_roadmap(prompt)
+        roadmap = llm_handler.generate_roadmap(prompt)
 
         context = []
 
-        for step in roadmap_2_step:
+        for step in roadmap:
             print(step[1])
             print("using tags: ", step[0])
 

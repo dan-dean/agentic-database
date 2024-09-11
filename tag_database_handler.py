@@ -57,9 +57,10 @@ class TagDatabaseHandler:
         return self._model
 
     def release_model(self):
-        del self._model
-        self._model = None
-        gc.collect()
+        if self._model is not None:
+            del self._model
+            self._model = None
+            gc.collect()
 
     def create_database_dir(self):
         if not os.path.exists(DATABASE_DIR):

@@ -158,8 +158,9 @@ class LLMHandler:
         return self._model
         
     def release_model(self):
-        del self._model
-        self._model = None
+        if self._model is not None:
+            del self._model
+            self._model = None
     
     def get_token_count(self, text):
         model = self.get_model()
