@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from orchestrator import Orchestrator
 
+
 class AsyncAgenticDatabase:
     def __init__(self):
         self.document_queue = queue.Queue()
@@ -27,6 +28,8 @@ class AsyncAgenticDatabase:
         with self.lock:
             self.document_queue.put((document, callback))
             self.get_process()
+
+    
     
     def add_prompt(self, prompt, callback=None):
         """Add a prompt to the prompt queue with an optional callback."""
@@ -68,37 +71,40 @@ class AsyncAgenticDatabase:
         return queue_item[0], queue_item[1]
 
     def get_existing_databases(self):
-        return orchestrator.get_existing_databases()
+        return self.orchestrator.get_existing_databases()
     
     def update_database_title(self, db_file, new_title):
-        return orchestrator.update_database_title(db_file, new_title)
+        return self.orchestrator.update_database_title(db_file, new_title)
     
     def delete_database(self, db_file):
-        return orchestrator.delete_database(db_file)
+        return self.orchestrator.delete_database(db_file)
+
+    def create_database(self, title):
+        return self.orchestrator.create_database(title)
 
     def get_number_of_documents(self, db_file):
-        return orchestrator.get_number_of_documents(database_title)
+        return self.orchestrator.get_number_of_documents(db_file)
 
-    def get_original_documents_from_textual_match(db_file, search_text):
-        return orchestrator.get_original_documents_from_textual_match(db_file, search_text)
+    def get_original_documents_from_textual_match(self, db_file, search_text):
+        return self.orchestrator.get_original_documents_from_textual_match(db_file, search_text)
 
     def remove_original_document(self, db_file, doc_uuid):
-        return orchestrator.remove_original_document(db_file, doc_uuid)
+        return self.orchestrator.remove_original_document(db_file, doc_uuid)
 
     def get_all_tags(self, db_file):
-        return orchestrator.get_all_tags(db_file)
+        return self.orchestrator.get_all_tags(db_file)
     
     def set_default_database(self, db_file):
         self.default_database = db_file
 
     def change_mode(self, mode):
-        return orchestrator.change_mode(mode)
+        return self.orchestrator.change_mode(mode)
 
     def clear_conversation_history(self):
-        return orchestrator.clear_conversation_history()
+        return self.orchestrator.clear_conversation_history()
 
     def load_conversation_history(self):
-        return orchestrator.load_conversation_history()
+        return self.orchestrator.load_conversation_history()
 
     def process_queues(self):
         """Main processing method that checks the prompt queue first, then documents."""

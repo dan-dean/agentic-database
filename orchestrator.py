@@ -12,7 +12,7 @@ class Orchestrator:
         self.llm_handler = LLMHandler()
         self.tag_handler = TagDatabaseHandler()
         self.conversation_history = [{"role": "system", "content": general_prompt}]
-        self.mode = "chat_thread"
+        self.mode = "single_query"
 
     def get_existing_databases(self):
         return get_existing_databases()
@@ -22,9 +22,15 @@ class Orchestrator:
     
     def delete_database(self, db_file):
         return delete_database(db_file)
+    
+    def create_database(self, title):
+        db_file = create_database(title)
+        self.tag_handler.create_database(db_file)
+        return db_file
+
 
     def get_number_of_documents(self, db_file):
-        return get_number_of_documents(database_title)
+        return get_number_of_documents(db_file)
 
     def get_original_documents_from_textual_match(db_file, search_text):
         return get_original_documents_from_textual_match(db_file, search_text)
@@ -35,9 +41,9 @@ class Orchestrator:
     def get_all_tags(self, db_file):
         return get_all_tags(db_file)
 
-    def process_document(self, document):
+    def process_document(self, document, db_file):
         self.tag_handler.release_model()
-        subdocs = self.llm_handler.break_up_and_summarize_text(document_text)
+        subdocs = self.llm_handler.break_up_and_summarize_text(document)
 
         subdocs_tags = []
 
@@ -47,9 +53,9 @@ class Orchestrator:
         
         self.llm_handler.release_model()
 
-        self.tag_handler.add_entry_to_database(database_title, subdocs_tags)
+        self.tag_handler.add_entry_to_database(db_file, subdocs_tags)
 
-        add_entry_to_database(database_title, document_text, subdocs)
+        add_entry_to_database(db_file, document, subdocs)
 
     def change_mode(self, mode):
         if mode not in ["chat_mode", "single_query"]:
@@ -58,6 +64,8 @@ class Orchestrator:
 
     def database_query(self, conversation_history, prompt, database_title):
         roadmap = self.llm_handler.generate_roadmap(prompt)
+
+        context = []
 
         for step in roadmap:
             print(step[1])
@@ -102,7 +110,9 @@ class Orchestrator:
 
             context.append(doc_text)
         
-        answer = self.llm_handler.generate_response_with_context(query_history, context)
+        answer = self.llm_handler.generate_response_with_context(conversation_history, context)
+
+        return answer
 
     def clear_conversation_history(self):
         self.conversation_history = [{"role": "system", "content": general_prompt}]

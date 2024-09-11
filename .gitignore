@@ -1,6 +1,9 @@
 # Ignore database files
 databases/
 
+# Ignore documents
+documents/
+
 # Ignore model files
 models/
 

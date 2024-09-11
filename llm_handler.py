@@ -79,7 +79,7 @@ choice_schema = {
     }
   },
   "required": ["choice"],
-  "additionalProperties": false
+  "additionalProperties": False
 }
 
 subject_list_schema = {
