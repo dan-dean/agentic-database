@@ -70,6 +70,18 @@ roadmap_schema = {
   "required": ["steps"]
 }
 
+choice_schema = {
+  "type": "object",
+  "properties": {
+    "choice": {
+      "type": "string",
+      "enum": ["respond", "database"]
+    }
+  },
+  "required": ["choice"],
+  "additionalProperties": false
+}
+
 subject_list_schema = {
     "type": "object",
     "properties": {
@@ -294,26 +306,16 @@ class LLMHandler:
         roadmap = [[step["query"].split(","), step["explanation"]] for step in steps]
         return roadmap
     
-    def generate_response_with_context(self, text, context):
+    def generate_response_with_context(self, conversation_history, context):
         model=self.get_model()
-        system_prompt = '''You are the culmination of a knowledge base system. Given the retrieved documents from the database focused around a certain domain
-        and a user prompt or query, respond to the user to the best of your ability. Use the retrieved data in your answer. If the answer does not lie within
-        the provided data, say as much. Be clear, effective, and succint in your responses while also fully explaining requested concepsts.'''
 
         context_str = "\n".join(context)
-        combined_text = text + "\nContext:\n" + context_str
+        combined_text = text + "\nRetrieved context:\n" + context_str
+
+        conversation_history.append({"role": "system", "content": combined_text})
 
         response = model.create_chat_completion(
-            messages=[
-                {
-                    "role": "system",
-                    "content": system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": combined_text
-                }
-            ]
+            messages=conversation_history,
         )
 
         return response["choices"][0]["message"]["content"]
@@ -390,6 +392,47 @@ class LLMHandler:
             })
 
         return subdocs
+
+    def generate_response(self, conversation_history):
+        model = self.get_model()
+
+        #TODO: Figure out how to remove entries from conversation history such that we stay within a token limit
+        # tokens = model.tokenize(conversation_history)
+        # if len(tokens) > 28000:
+        #     truncated_tokens = tokens[-28000:]
+        #     conversation_history = self._model.detokenize(truncated_tokens).decode('utf-8')
+
+        no_context_prompt = '''Based on the conversation history, you have elected that the user query can be answered without additional context from your database. Respond to the user.'''
+
+        response = model.create_chat_completion(messages=conversation_history+[{"role": "system", "content": no_context_prompt}])
+
+        return response["choices"][0]["message"]["content"]
+
+    def decide_to_respond_or_use_tool(self, conversation_history):
+        model = self.get_model()
+
+        # tokens = model.tokenize(conversation_history)
+        # if len(tokens) > 28000:
+        #     truncated_tokens = tokens[-28000:]
+        #     conversation_history = self._model.detokenize(truncated_tokens).decode('utf-8')
+
+        system_prompt_choice = '''You are a chatbot that can make use of a database tool to answer questions. You are provided with a conversation history.
+        Based on the conversation history, you must decide whether to respond to the user directly or use the database tool to answer the question. Keep 
+        in mind that the database tool is a multi-step process that will provide you with relevant context, but has a significantly higher time cost. If 
+        you can respond to the current query without pulling from the database, do so. If you require more information beyond what is in the conversation history,
+        say 'database'. If you can answer the question based on the conversation history, say 'respond'.'''
+
+        choice_response = model.create_chat_completion(
+            messages=
+                conversation_history+[{"role": "system", "content": system_prompt_choice}],
+            response_format={"type": "json_object", "schema": choice_schema}
+        )
+
+        choice = json.loads(choice_response["choices"][0]["message"]["content"])["choice"]
+        return choice
+
+
+
 
 
 

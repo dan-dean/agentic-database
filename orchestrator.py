@@ -3,10 +3,16 @@ from tag_database_handler import TagDatabaseHandler
 from doc_database_handler import *
 from collections import Counter
 
+general_prompt = '''You are a knowledgeable chatbot that answers questions and assists users. You have access to a hybrid database tool built with SQL and a Vector DB.
+        Your database uses agentic LLM models that can create roadmaps to answer problems. When retrieving data from the database, if the answer is not present in the provided
+        data, candidly state as much. Be clear, effective, and succinct in your responses while also fully explaining requested concepsts.'''
+
 class Orchestrator:
     def __init__(self):
         self.llm_handler = LLMHandler()
         self.tag_handler = TagDatabaseHandler()
+        self.conversation_history = [{"role": "system", "content": general_prompt}]
+        self.mode = "chat_thread"
 
     def get_existing_databases(self):
         return get_existing_databases()
@@ -45,12 +51,13 @@ class Orchestrator:
 
         add_entry_to_database(database_title, document_text, subdocs)
 
-    def process_prompt(self, prompt, database_title):
-        self.tag_handler.release_model()
-        
-        roadmap = self.llm_handler.generate_roadmap(prompt)
+    def change_mode(self, mode):
+        if mode not in ["chat_mode", "single_query"]:
+            raise ValueError("Mode must be either 'chat_mode' or 'single_query'")
+        self.mode = mode
 
-        context = []
+    def database_query(self, conversation_history, prompt, database_title):
+        roadmap = self.llm_handler.generate_roadmap(prompt)
 
         for step in roadmap:
             print(step[1])
@@ -73,8 +80,7 @@ class Orchestrator:
 
             relevant_tags = self.llm_handler.return_relevant_tags(step[1], real_tags_pool)
 
-            if len(relevant_tags) == 0:
-                print("I'm sorry, I have no knowledge on that subject.")
+            if len(relevant_tags) == 1 and relevant_tags[0] == "nothing":
                 continue
 
             print("relevant tags: ", relevant_tags)
@@ -96,8 +102,31 @@ class Orchestrator:
 
             context.append(doc_text)
         
-        print("context: ", context)
-        print("answering...")
-        answer = self.llm_handler.generate_response_with_context(prompt, context)
+        answer = self.llm_handler.generate_response_with_context(query_history, context)
 
-        return answer, context
+    def clear_conversation_history(self):
+        self.conversation_history = [{"role": "system", "content": general_prompt}]
+
+    def load_conversation_history(self, conversation_history):
+        self.conversation_history = conversation_history
+
+    def process_prompt(self, prompt, database_title):
+        self.tag_handler.release_model()
+
+        answer = None
+
+        if self.mode == "single_query":
+            query_history = self.conversation_history+[{"role": "user", "content": prompt}]
+        
+            answer = self.database_query(query_history, prompt, database_title)
+
+        elif self.mode == "chat_mode":
+            self.conversation_history.append({"role": "user", "content": prompt})
+            if self.llm_handler.decide_to_respond_or_use_tool(self.conversation_history) == "database":
+                answer = self.database_query(self.conversation_history, prompt, database_title)
+            else:
+                answer = self.llm_handler.generate_response(self.conversation_history)
+            
+            self.conversation_history.append({"role": "assistant", "content": answer})
+        
+        return answer

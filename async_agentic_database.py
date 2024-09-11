@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from orchestrator import Orchestrator
 
-class MultiQueueProcessor:
+class AsyncAgenticDatabase:
     def __init__(self):
         self.document_queue = queue.Queue()
         self.prompt_queue = queue.Queue()
@@ -90,6 +90,15 @@ class MultiQueueProcessor:
     
     def set_default_database(self, db_file):
         self.default_database = db_file
+
+    def change_mode(self, mode):
+        return orchestrator.change_mode(mode)
+
+    def clear_conversation_history(self):
+        return orchestrator.clear_conversation_history()
+
+    def load_conversation_history(self):
+        return orchestrator.load_conversation_history()
 
     def process_queues(self):
         """Main processing method that checks the prompt queue first, then documents."""
