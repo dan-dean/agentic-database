@@ -70,6 +70,9 @@ class AsyncAgenticDatabase:
     def split(self, queue_item):
         return queue_item[0], queue_item[1]
 
+    def set_new_system_prompt(self, new_prompt):
+        return self.orchestrator.set_new_system_prompt(new_prompt)
+
     def get_existing_databases(self):
         return self.orchestrator.get_existing_databases()
     
@@ -98,7 +101,14 @@ class AsyncAgenticDatabase:
         self.default_database = db_file
 
     def change_mode(self, mode):
-        return self.orchestrator.change_mode(mode)
+        self.orchestrator.change_mode(mode)
+        if mode == "single_query":
+            if self.processing_thread is not None and self.status()["status"] == "Idle":
+                self.processing_thread.join()
+                self.processing_thread = None
+    
+    def get_mode(self):
+        return self.orchestrator.get_mode()
 
     def clear_conversation_history(self):
         return self.orchestrator.clear_conversation_history()
@@ -108,6 +118,7 @@ class AsyncAgenticDatabase:
 
     def process_queues(self):
         """Main processing method that checks the prompt queue first, then documents."""
+        self.orchestrator.llm_handler.get_model()
         while True:
             # Check for prompts first
             if not self.prompt_queue.empty():
@@ -150,14 +161,18 @@ class AsyncAgenticDatabase:
                 self.orchestrator.process_document(document_text, database_title)
                 
                 # Call the callback function if provided
+                response = {
+                    "document": document_text[:20],
+                    "time_spent": str(datetime.now() - self.processing_start_time)
+                }
                 if callback:
-                    callback(f"Processed document: {document_text}")
+                    callback(response)
             
-            else:
+            elif self.orchestrator.get_mode() == "single_query":
                 # Both queues are empty, so shut down the thread
                 print("Both queues are empty. Shutting down processor.")
-                self.llm_handler.release_model()
-                self.tag_handler.release_model()
+                self.orchestrator.llm_handler.release_model()
+                self.orchestrator.tag_handler.release_model()
                 self.currently_processing = None
                 self.processing_start_time = None
                 return

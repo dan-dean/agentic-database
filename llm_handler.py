@@ -75,7 +75,7 @@ choice_schema = {
   "properties": {
     "choice": {
       "type": "string",
-      "enum": ["respond", "database"]
+      "enum": ["no", "yes"]
     }
   },
   "required": ["choice"],
@@ -158,8 +158,8 @@ class LLMHandler:
         if self._model is None:
             with open(model_file_name, "r") as f:
                 model_json = json.load(f)
-                model_file = model_json["model_file"]
-            self._model = llama_cpp.Llama("models\llm\models--lmstudio-community--Meta-Llama-3.1-8B-Instruct-GGUF\snapshots\8601e6db71269a2b12255ebdf09ab75becf22cc8\Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
+                # model_file = model_json["model_file"] # will be used when the model weights are matching (huggingface reports 292 tensors when 291)
+            self._model = llama_cpp.Llama("models\\llm\\models--lmstudio-community--Meta-Llama-3.1-8B-Instruct-GGUF\\snapshots\\8601e6db71269a2b12255ebdf09ab75becf22cc8\\Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
                                             n_gpu_layers=-1,
                                             n_ctx=30000,
                                             flash_attn=True,
@@ -183,7 +183,6 @@ class LLMHandler:
             model = self.get_model()
             token_sets = []
 
-            print("tags_actual: ", tags_actual)
             
             for tag in tags_actual:
                 # Tokenize the tag
@@ -242,8 +241,6 @@ class LLMHandler:
         output_str = output["choices"][0]["text"]
 
         valid_tags = output_str.split(",")
-
-        print("valid tags: ", valid_tags)
 
         tags_trimmed = []
 
@@ -310,7 +307,7 @@ class LLMHandler:
         model=self.get_model()
 
         context_str = "\n".join(context)
-        combined_text = text + "\nRetrieved context:\n" + context_str
+        combined_text = "\nRetrieved context:\n" + context_str
 
         conversation_history.append({"role": "system", "content": combined_text})
 
@@ -416,11 +413,8 @@ class LLMHandler:
         #     truncated_tokens = tokens[-28000:]
         #     conversation_history = self._model.detokenize(truncated_tokens).decode('utf-8')
 
-        system_prompt_choice = '''You are a chatbot that can make use of a database tool to answer questions. You are provided with a conversation history.
-        Based on the conversation history, you must decide whether to respond to the user directly or use the database tool to answer the question. Keep 
-        in mind that the database tool is a multi-step process that will provide you with relevant context, but has a significantly higher time cost. If 
-        you can respond to the current query without pulling from the database, do so. If you require more information beyond what is in the conversation history,
-        say 'database'. If you can answer the question based on the conversation history, say 'respond'.'''
+        system_prompt_choice = '''Decide if the current conversation history has the answer to the question being posed in the most recent user 
+        message. If it does contain the information, say yes. If not, say no.'''
 
         choice_response = model.create_chat_completion(
             messages=
@@ -430,10 +424,3 @@ class LLMHandler:
 
         choice = json.loads(choice_response["choices"][0]["message"]["content"])["choice"]
         return choice
-
-
-
-
-
-
-        

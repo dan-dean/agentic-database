@@ -3,19 +3,23 @@ from tag_database_handler import TagDatabaseHandler
 from doc_database_handler import *
 from collections import Counter
 
-general_prompt = '''You are a knowledgeable chatbot that answers questions and assists users. You have access to a hybrid database tool built with SQL and a Vector DB.
-        Your database uses agentic LLM models that can create roadmaps to answer problems. When retrieving data from the database, if the answer is not present in the provided
-        data, candidly state as much. Be clear, effective, and succinct in your responses while also fully explaining requested concepsts.'''
 
 class Orchestrator:
     def __init__(self):
         self.llm_handler = LLMHandler()
         self.tag_handler = TagDatabaseHandler()
-        self.conversation_history = [{"role": "system", "content": general_prompt}]
         self.mode = "single_query"
+        self.system_prompt = '''You are a knowledgeable chatbot that answers questions and assists users. You have access to a hybrid database tool built with SQL and a Vector DB.
+        Your database uses agentic LLM models that can create roadmaps to answer problems. When retrieving data from the database, if the answer is not present in the provided
+        data, candidly state as much. Be clear, effective, and succinct in your responses while also fully explaining requested concepsts.'''
+        self.conversation_history = [{"role": "system", "content": self.system_prompt}]
 
     def get_existing_databases(self):
         return get_existing_databases()
+
+    def set_new_system_prompt(self, new_prompt):
+        self.system_prompt = new_prompt
+        self.clear_conversation_history()
     
     def update_database_title(self, db_file, new_title):
         return update_database_title(db_file, new_title)
@@ -28,7 +32,6 @@ class Orchestrator:
         db_file = create_database(title)
         self.tag_handler.create_database(db_file)
         return db_file
-
 
     def get_number_of_documents(self, db_file):
         return get_number_of_documents(db_file)
@@ -49,7 +52,7 @@ class Orchestrator:
         subdocs_tags = []
 
         for subdoc in subdocs:
-            for tag in subdocs["tags"]:
+            for tag in subdoc["tags"]:
                 subdocs_tags.append(tag)
         
         self.llm_handler.release_model()
@@ -61,7 +64,12 @@ class Orchestrator:
     def change_mode(self, mode):
         if mode not in ["chat_mode", "single_query"]:
             raise ValueError("Mode must be either 'chat_mode' or 'single_query'")
+        if mode == "chat_mode":
+            self.clear_conversation_history()
         self.mode = mode
+
+    def get_mode(self):
+        return self.mode
 
     def database_query(self, conversation_history, prompt, database_title):
         roadmap = self.llm_handler.generate_roadmap(prompt)
@@ -70,14 +78,11 @@ class Orchestrator:
 
         for step in roadmap:
             print(step[1])
-            print("using tags: ", step[0])
 
             #get real tags from prospective
             real_tags = self.tag_handler.get_nearest_neighbors(database_title, step[0], 10)
 
             self.tag_handler.release_model()
-
-            print("real tags: ", real_tags)
 
             #get relevant tags from real
 
@@ -113,10 +118,10 @@ class Orchestrator:
         
         answer = self.llm_handler.generate_response_with_context(conversation_history, context)
 
-        return answer
+        return answer, context
 
     def clear_conversation_history(self):
-        self.conversation_history = [{"role": "system", "content": general_prompt}]
+        self.conversation_history = [{"role": "system", "content": self.system_prompt}]
 
     def load_conversation_history(self, conversation_history):
         self.conversation_history = conversation_history
@@ -124,20 +129,20 @@ class Orchestrator:
     def process_prompt(self, prompt, database_title):
         self.tag_handler.release_model()
 
-        answer = None
+        answer, context = None, None
 
         if self.mode == "single_query":
             query_history = self.conversation_history+[{"role": "user", "content": prompt}]
         
-            answer = self.database_query(query_history, prompt, database_title)
+            answer, context = self.database_query(query_history, prompt, database_title)
 
         elif self.mode == "chat_mode":
             self.conversation_history.append({"role": "user", "content": prompt})
-            if self.llm_handler.decide_to_respond_or_use_tool(self.conversation_history) == "database":
-                answer = self.database_query(self.conversation_history, prompt, database_title)
+            if self.llm_handler.decide_to_respond_or_use_tool(self.conversation_history) == "no":
+                answer, context = self.database_query(self.conversation_history, prompt, database_title)
             else:
                 answer = self.llm_handler.generate_response(self.conversation_history)
             
             self.conversation_history.append({"role": "assistant", "content": answer})
         
-        return answer
+        return answer, context
