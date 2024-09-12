@@ -453,7 +453,8 @@ class LLMHandler:
         #     conversation_history = self._model.detokenize(truncated_tokens).decode('utf-8')
 
         system_prompt_choice = '''Decide if the current conversation history has the specific factual answer to the question being posed in the most recent user 
-        message. If it does contain the information, say yes. If not, say no. If you are unsure at all, say no. Your output determines if a database lookup will be performed. If it does 
+        message. If it does contain the information, say yes. If not, say no. If you are unsure at all, say no.You are not to base this decision on existing general knowledge.
+        You only know information present in the context or database. Your output determines if a database lookup will be performed. If it does 
         not appear necessary to perform the database lookup, say yes. If it does appear necessary, say no.'''
 
         choice_response = model.create_chat_completion(

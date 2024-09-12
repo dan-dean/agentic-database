@@ -11,7 +11,8 @@ class Orchestrator:
         self.mode = "single_query"
         self.system_prompt = '''You are a knowledgeable chatbot that answers questions and assists users. You have access to a hybrid database tool built with SQL and a Vector DB.
         Your database uses agentic LLM models that can create roadmaps to answer problems. When retrieving data from the database, if the answer is not present in the provided
-        data, candidly state as much. Be clear, effective, and succinct in your responses while also fully explaining requested concepsts.'''
+        data, candidly state as much.  Defer with complete adherence to the information retrieved from the database over your own general knowledge. 
+        Be clear, effective, and succinct in your responses while also fully explaining requested concepts.'''
         self.conversation_history = [{"role": "system", "content": self.system_prompt}]
 
     def get_existing_databases(self):
