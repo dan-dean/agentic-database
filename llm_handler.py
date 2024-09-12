@@ -105,30 +105,21 @@ subject_list_schema = {
 subdoc_schema = {
     "type": "object",
     "properties": {
-        "subdocs": {
+        "subdoc_text": {
+            "type": "string",
+            "description": "The subdoc text, mostly quoting from the source with minimal paraphrasing."
+        },
+        "tags": {
             "type": "array",
             "items": {
-                "type": "object",
-                "properties": {
-                    "subdoc_text": {
-                        "type": "string",
-                        "description": "The subdoc text, mostly quoting from the source with minimal paraphrasing."
-                    },
-                    "tags": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "pattern": "^[a-z0-9_]+$",
-                            "description": "A tag describing the subject or concept found in the subdoc."
-                        },
-                        "minItems": 1
-                    }
-                },
-                "required": ["subdoc_text", "tags"]
-            }
+                "type": "string",
+                "pattern": "^[a-z0-9_]+$",
+                "description": "A tag describing the subject or concept found in the subdoc."
+            },
+            "minItems": 1
         }
     },
-    "required": ["subdocs"]
+    "required": ["subdoc_text", "tags"]
 }
 
 class LLMHandler:
@@ -296,7 +287,7 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": roadmap_schema}
         )
 
-        roadmap_json = json.loads(roadmap_response["choices"][0]["message"]["content"])
+        roadmap_json = json.loads(json.dumps(roadmap_response["choices"][0]["message"]["content"]))
         
         steps = roadmap_json["steps"]
 
@@ -323,7 +314,9 @@ class LLMHandler:
         
         system_prompt_subjects = '''You are provided with a document. Your task is to identify the major one or more subjects or concepts present in the document.
         List each subject or concept found in the document as a JSON array. Do not explain them. The subjects should be concise and accurately describe topics found in the text.
-        Subjects should be as if you had to chunk up the given document into discrete chapters or topics. Not every single word or term needs to be its own subject.
+        Subjects should be as if you had to chunk up the given document into discrete chapters or topics. These subjects will be used to subdivide the text into documents to be 
+        placed into a database, so smart chunking is crucial. For example, if a document is a list of 100 rapid-fire topics, one subject should probably be what describes the list as 
+        a whole instead of one subject for every entry in the list. Not every single word or term needs to be its own subject.
         Avoid redundancy in similar subjects. If a subject is a subset of another subject, only list the broader subject. Like if 
         the document mentions serverless functions and then goes on to explain AWS Lambda, you would only list serverless functions as a subject, as that topic covers Lambda.
         You're not trying to reach a word count, think more in broad strokes, don't add every single detail or vocab word as a subject.'''
@@ -337,7 +330,9 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": subject_list_schema}
         )
 
-        subject_list = json.loads(subject_response["choices"][0]["message"]["content"].replace('\n', '\\n'))["subjects"]
+        subject_list = json.loads(json.dumps(subject_response["choices"][0]["message"]["content"]))["subjects"]
+
+        print(subject_list)
 
         subdocs = []
         message_history = []  # Store previous LLM responses for context
@@ -348,7 +343,9 @@ class LLMHandler:
             system_prompt_subdoc = f'''You are tasked with creating a sub-document for the subject: "{subject}". The sub-doc should mostly quote the original text,
             but you may paraphrase if necessary to abridge or clarify. It should explain the named subject in its entirety. Make sure not to add any external information that isn't found in the original document. 
             Include only the text relevant to the subject. After the sub-document text, list the tags that describe the subject or concept found in the sub-document.
-            List only the tags that describe the contents of this sub-document. Tags are lowercase alphanumeric strings with underscores. Do not include any tags that about things elsewhere in the source text.'''
+            List only the tags that describe the contents of this sub-document. There may be one or two tags, or very many tags depending on the information conatined in the text
+            of the sub-document created. Tags will be used as meta-data for each sub document in a database such that if someone wanted the information in the document, it could be 
+            looked up by the tags, so design your tags for that use case. Tags are lowercase alphanumeric strings with underscores. Do not include any tags that about things elsewhere in the source text.'''
 
             # Build the messages, including the history
             messages = [
@@ -365,22 +362,24 @@ class LLMHandler:
                 response_format={"type": "json_object", "schema": subdoc_schema}
             )
             
-            subdoc_data = json.loads(subdoc_response["choices"][0]["message"]["content"].replace('\n', '\\n'))
+            subdoc_data = json.loads(json.dumps((subdoc_response["choices"][0]["message"]["content"])))
 
-            for subdoc in subdoc_data["subdocs"]:
+            tags_possible = subdoc_data["tags"]
+            tags_trimmed = []
 
-                tags_possible = subdoc["tags"]
-                tags_trimmed = []
-                
-                for tag in tags_possible:
-                    if tag in tags_trimmed or tag == "":
-                        continue
-                    tags_trimmed.append(tag)
+            for tag in tags_possible:
+                if tag in tags_trimmed or tag == "":
+                    continue
+                tags_trimmed.append(tag)
+            
 
-                subdocs.append({
-                    "subdoc_text": subdoc["subdoc_text"],
-                    "tags": tags_trimmed
-                })
+            subdocs.append({    
+                "subdoc_text": subdoc_data["subdoc_text"],
+                "tags": tags_trimmed
+            })
+
+            print(subdoc_data["subdoc_text"])
+            print(tags_trimmed)
 
             # Add this response to the message history for context in the next loop
             message_history.append({
@@ -413,8 +412,9 @@ class LLMHandler:
         #     truncated_tokens = tokens[-28000:]
         #     conversation_history = self._model.detokenize(truncated_tokens).decode('utf-8')
 
-        system_prompt_choice = '''Decide if the current conversation history has the answer to the question being posed in the most recent user 
-        message. If it does contain the information, say yes. If not, say no.'''
+        system_prompt_choice = '''Decide if the current conversation history has the factual answer to the question being posed in the most recent user 
+        message. If it does contain the information, say yes. If not, say no. Your output determines if a database lookup will be performed. If it does 
+        not appear necessary to perform the database lookup, say yes. If it does appear necessary, say no.'''
 
         choice_response = model.create_chat_completion(
             messages=
@@ -422,5 +422,5 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": choice_schema}
         )
 
-        choice = json.loads(choice_response["choices"][0]["message"]["content"])["choice"]
+        choice = json.loads(json.dumps(choice_response["choices"][0]["message"]["content"]))["choice"]
         return choice

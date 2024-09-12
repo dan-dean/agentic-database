@@ -27,9 +27,9 @@ Available commands:
     """)
 
 def list_databases():
-    database = async_agentic_database.get_existing_databases()
-    for db in database:
-        print("1. ", db["title"], " - ", db["last_modified"])
+    databases = async_agentic_database.get_existing_databases()
+    for i in range(len(databases)):
+        print(f"{i + 1}. {databases[i]["title"]} - {databases[i]["last_modified"]}")
 
 def set_default_database(db_number=None):
     global default_database
@@ -97,7 +97,7 @@ def add_document(doc_name=None, db_number=None):
         return
 
     try:
-        with open(doc_name, 'r') as file:
+        with open(doc_name, 'r', encoding='utf-8', errors='ignore') as file:
             document_text = file.read()
     except Exception as e:
         print(f"Error reading file: {e}")
