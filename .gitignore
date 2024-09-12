@@ -10,3 +10,4 @@ models/
 # Ignore pycache
 __pycache__/
 
+llm_structure_stream_playground.py
