@@ -287,7 +287,11 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": roadmap_schema}
         )
 
-        roadmap_json = json.loads(json.dumps(roadmap_response["choices"][0]["message"]["content"]))
+        roadmap_json = json.loads(roadmap_response["choices"][0]["message"]["content"]
+                          .replace('\n', '\\n')
+                          .replace('\r', '\\r')
+                          .replace('\t', '\\t')
+                          .encode('utf-8', 'ignore').decode('utf-8'))
         
         steps = roadmap_json["steps"]
 
@@ -330,7 +334,12 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": subject_list_schema}
         )
 
-        subject_list = json.loads(json.dumps(subject_response["choices"][0]["message"]["content"]))["subjects"]
+        subject_list = json.loads(subject_response["choices"][0]["message"]["content"]
+                          .replace('\n', '\\n')
+                          .replace('\r', '\\r')
+                          .replace('\t', '\\t')
+                          .encode('utf-8', 'ignore').decode('utf-8'))["subjects"]
+
 
         print(subject_list)
 
@@ -345,7 +354,8 @@ class LLMHandler:
             Include only the text relevant to the subject. After the sub-document text, list the tags that describe the subject or concept found in the sub-document.
             List only the tags that describe the contents of this sub-document. There may be one or two tags, or very many tags depending on the information conatined in the text
             of the sub-document created. Tags will be used as meta-data for each sub document in a database such that if someone wanted the information in the document, it could be 
-            looked up by the tags, so design your tags for that use case. Tags are lowercase alphanumeric strings with underscores. Do not include any tags that about things elsewhere in the source text.'''
+            looked up by the tags, so design your tags for that use case. Tags are lowercase alphanumeric strings with underscores. Tags are single words or phrases. If there is a multi-word tag, 
+            use underscores "_" as spaces. Do not include any tags that about things elsewhere in the source text.'''
 
             # Build the messages, including the history
             messages = [
@@ -362,8 +372,12 @@ class LLMHandler:
                 response_format={"type": "json_object", "schema": subdoc_schema}
             )
             
-            subdoc_data = json.loads(json.dumps((subdoc_response["choices"][0]["message"]["content"])))
-
+            subdoc_data = json.loads(subdoc_response["choices"][0]["message"]["content"]
+                          .replace('\n', '\\n')
+                          .replace('\r', '\\r')
+                          .replace('\t', '\\t')
+                          .encode('utf-8', 'ignore').decode('utf-8'))
+                          
             tags_possible = subdoc_data["tags"]
             tags_trimmed = []
 
@@ -422,5 +436,9 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": choice_schema}
         )
 
-        choice = json.loads(json.dumps(choice_response["choices"][0]["message"]["content"]))["choice"]
+        choice = json.loads(choice_response["choices"][0]["message"]["content"]
+                          .replace('\n', '\\n')
+                          .replace('\r', '\\r')
+                          .replace('\t', '\\t')
+                          .encode('utf-8', 'ignore').decode('utf-8'))["choice"]
         return choice
