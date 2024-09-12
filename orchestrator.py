@@ -94,25 +94,19 @@ class Orchestrator:
 
             relevant_tags = self.llm_handler.return_relevant_tags(step[1], real_tags_pool)
 
-            if len(relevant_tags) == 1 and relevant_tags[0] == "nothing":
+            if len(relevant_tags) == 0 or ( len(relevant_tags) == 1 and relevant_tags[0] == "nothing" ):
                 continue
 
             print("relevant tags: ", relevant_tags)
 
             #get doc uuids from relevant tags
 
-            doc_uuids, doc_tags = get_document_uuid_tags_from_tag(database_title, relevant_tags)
+            doc_uuids, doc_tags = get_document_uuid_tags_from_tags(database_title, relevant_tags)
 
             print("found ", len(doc_uuids), " documents with relevant tags")
+            print("reading document with tags: ", doc_tags[0])
 
-            #get top hits
-            # Count the occurrences of each UUID
-            uuid_counts = Counter(doc_uuids)
-
-            # Find the UUID with the highest occurrence
-            most_common_uuid, most_common_count = uuid_counts.most_common(1)[0]
-
-            doc_text = get_document_text_from_uuid(database_title, most_common_uuid)
+            doc_text = get_document_text_from_uuid(database_title, doc_uuids[0])
 
             context.append(doc_text)
         

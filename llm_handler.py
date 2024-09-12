@@ -222,7 +222,12 @@ class LLMHandler:
 
         prompt = '''Given the following text and a list of possibly relevant valid tags in our database,
         return only the tag or tags that are relevant to the prompt being asked and may point towards documents in the database 
-        that would help answer the prompt. You are not trying to make a judgement call or answer the question. You should return a comma delimited list. 
+        that would help answer the prompt.  You are not trying to make a judgement call or answer the question. You should return a 
+        comma delimited list. The first tag you return will be the Primary Tag, which documents are required to have to 
+        be selected as context. It should be the most descriptive and relevant tag that is present in the list. Then, any subsequent 
+        tags are Associated Tags, which may help refine the search if a document has more of those tags present. Once again, documents 
+        have to have the primary tag, and they may have some number of secondary tags. Make sure the first document in your list is most 
+        relevant.
         If none are applicable, return 'nothing'.\nText:\n'''
 
         constructed_prompt = prompt + text + "\nHere are the possibly relevant tags:\n" + ', '.join(tags_actual) + "\nThese are the actually relevant tags: \n"
@@ -355,7 +360,7 @@ class LLMHandler:
             List only the tags that describe the contents of this sub-document. There may be one or two tags, or very many tags depending on the information conatined in the text
             of the sub-document created. Tags will be used as meta-data for each sub document in a database such that if someone wanted the information in the document, it could be 
             looked up by the tags, so design your tags for that use case. Tags are lowercase alphanumeric strings with underscores. Tags are single words or phrases. If there is a multi-word tag, 
-            use underscores "_" as spaces. Do not include any tags that about things elsewhere in the source text.'''
+            use underscores "_" as spaces. Avoid tags that are not relevant to the subject but found elsewhere in the text, unless this subject is a subset of a larger subject also defined elsewhere.'''
 
             # Build the messages, including the history
             messages = [

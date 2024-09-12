@@ -13,16 +13,16 @@ async_agentic_database.set_new_system_prompt('''You are a knowledgeable chatbot 
 def help_command():
     print("""
 Available commands:
-- help
+- help (Show this help message)
 - ls (Lists all databases)
 - set_db [database_number] (Set the default database)
-- create_db [database_name] (Create a new database)
-- delete_db [database_number] (Delete a database)
-- add_doc [document_path] [database_number]
-- send_q [query] [database_number]
-- queue_size
-- status
-- start_thread [database_number]
+- mk_db [database_name] (Create a new database)
+- del_db [database_number] (Delete a database)
+- add_doc [document_path] [database_number] (Add a document to the database)
+- send_q [query] [database_number] (Send a single query to the database)
+- q_size (Get the size of the document and prompt queues)
+- status (Get the current status of the system)
+- thread [database_number] (Start a chat thread in the database)
 - exit
     """)
 
@@ -234,9 +234,9 @@ def handle_command(command_input):
         list_databases()
     elif command == "set_db":
         set_default_database(args[1] if len(args) > 1 else None)
-    elif command == "create_db":
+    elif command == "mk_db":
         create_database(args[1] if len(args) > 1 else None)
-    elif command == "delete_db":
+    elif command == "del_db":
         delete_database(args[1] if len(args) > 1 else None)
     elif command == "add_doc":
         if len(args) == 3:
@@ -245,13 +245,13 @@ def handle_command(command_input):
             add_document(args[1], None)
         else:
             add_document(None, None)
-    elif command == "queue_size":
+    elif command == "q_size":
         queue_size()
     elif command == "status":
         status()
     elif command == "send_q":
         send_query(" ".join(args[1:]) if len(args) > 1 else None)
-    elif command == "start_thread":
+    elif command == "thread":
         start_thread(" ".join(args[1:]) if len(args) > 1 else None)
     elif command == "exit":
         if async_agentic_database.status()["status"] == "Processing":

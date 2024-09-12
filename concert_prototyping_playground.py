@@ -137,7 +137,7 @@ try:
 
             #get doc uuids from relevant tags
 
-            doc_uuids, doc_tags = get_document_uuid_tags_from_tag(doc_db_name, relevant_tags)
+            doc_uuids, doc_tags = get_document_uuid_tags_from_tags(doc_db_name, relevant_tags)
 
             print("found ", len(doc_uuids), " documents with relevant tags")
 

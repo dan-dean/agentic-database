@@ -225,45 +225,47 @@ def get_all_tags(db_file):
         return None
 
 # tag may be a string or a list of strings
-def get_document_uuid_tags_from_tag(db_file, tag):
+def get_document_uuid_tags_from_tags(db_file, tags):
     db_path = os.path.join(DATABASE_DIR, db_file)
     
     if os.path.exists(db_path):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        uuids = []
-        tags_matched = []
+        uuids_with_tags = {}
 
-        if isinstance(tag, str):  # single tag
-            cursor.execute('''
-            SELECT documents.uuid, tags.tag FROM documents
-            JOIN document_tags ON documents.uuid = document_tags.document_uuid
-            JOIN tags ON document_tags.tag_id = tags.id
-            WHERE tags.tag = ?
-            ''', (tag,))
-            results = cursor.fetchall()
-            for row in results:
-                uuids.append(row[0])
-                tags_matched.append(row[1])
-        
-        elif isinstance(tag, list):  # list of tags
-            placeholder = ', '.join(['?'] * len(tag))
+        if isinstance(tags, list) and len(tags) > 0:
+            primary_tag = tags[0]  # First tag is the primary one
+            all_tags = tags  # Consider all tags for filtering
+            
+            placeholder = ', '.join(['?'] * len(all_tags))
             query = f'''
             SELECT documents.uuid, tags.tag FROM documents
             JOIN document_tags ON documents.uuid = document_tags.document_uuid
             JOIN tags ON document_tags.tag_id = tags.id
             WHERE tags.tag IN ({placeholder})
             '''
-            cursor.execute(query, tuple(tag))
+            cursor.execute(query, tuple(all_tags))
             results = cursor.fetchall()
-            for row in results:
-                uuids.append(row[0])
-                tags_matched.append(row[1])
 
-        conn.close()
+            for doc_uuid, tag in results:
+                if doc_uuid not in uuids_with_tags:
+                    uuids_with_tags[doc_uuid] = []
+                
+                uuids_with_tags[doc_uuid].append(tag)
 
-        return uuids, tags_matched
+            filtered_uuids_with_tags = {uuid: tags for uuid, tags in uuids_with_tags.items() if primary_tag in tags}
+
+            sorted_documents = sorted(filtered_uuids_with_tags.items(), key=lambda x: len(x[1]), reverse=True)
+
+            uuids = [doc[0] for doc in sorted_documents]
+            tags_matched = [doc[1] for doc in sorted_documents]
+
+            conn.close()
+            return uuids, tags_matched
+        
+        else:
+            raise ValueError("Tags must be a non-empty list")
     else:
         return None, None
 

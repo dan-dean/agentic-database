@@ -119,20 +119,20 @@ db_tags = get_all_tags(first_db['file'])
 print(db_tags)
 
 print("document uuid tags from tag")
-uuids, tags = get_document_uuid_tags_from_tag(first_db['file'], "live_application")
+uuids, tags = get_document_uuid_tags_from_tags(first_db['file'], "live_application")
 print(uuids)
 document_text = get_document_text_from_uuid(first_db['file'], uuids[0])
 print(document_text)
 
 print("multiple matches test")
-uuids, tags = get_document_uuid_tags_from_tag(first_db['file'], "development_space")
+uuids, tags = get_document_uuid_tags_from_tags(first_db['file'], "development_space")
 print(uuids)
 for uuid in uuids:
     document_text = get_document_text_from_uuid(first_db['file'], uuid)
     print(document_text)
 
 print("multiple tags multiple matches test")
-uuids, tags = get_document_uuid_tags_from_tag(first_db['file'], ["development_space", "software_environments"])
+uuids, tags = get_document_uuid_tags_from_tags(first_db['file'], ["development_space", "software_environments"])
 print(uuids)
 print(tags)
 for uuid in uuids:
