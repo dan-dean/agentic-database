@@ -108,6 +108,12 @@ def create_database(title):
     
     return db_uuid + ".db"
 
+def update_last_modified(db_file, cursor):
+    last_modified = datetime.now().isoformat()
+    cursor.execute('''
+    UPDATE metadata SET last_modified = ? WHERE 1
+    ''', (last_modified,))
+
 def get_existing_databases():
     databases = []
     
@@ -202,6 +208,8 @@ def add_entry_to_database(db_file, text, sub_docs, pdf="null", youtube_url="null
                 cursor.execute('''
                 INSERT INTO document_tags (document_uuid, tag_id) VALUES (?, ?)
                 ''', (sub_doc_uuid, tag_id))
+        
+        update_last_modified(db_file, cursor)
         
         conn.commit()
         conn.close()
@@ -435,6 +443,8 @@ def remove_original_document(db_file, original_uuid):
             DELETE FROM original_documents
             WHERE uuid = ?
             ''', (original_uuid,))
+
+            update_last_modified(db_file, cursor)
             
             conn.commit()
             conn.close()
