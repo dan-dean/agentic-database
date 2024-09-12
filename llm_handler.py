@@ -317,9 +317,28 @@ class LLMHandler:
 
         return response["choices"][0]["message"]["content"]
     
+
+    def finished_with_subdocs(self, messages, subject_list):
+        model=self.get_model()
+
+        system_prompt_finished = '''Have the generated sub-documents covered all the subjects or concepts in the document? There may be subjects in this list that are redundant or 
+        unneccesary. If the sub-documents created so far have covered all subjects listed in the following list, return True. Else, return False. If you believe the entirety of the 
+        information present in the source text hasn't been captured in the sub-docs yet, more sub-docs will be created.'''
+
+        message_to_send = messages + [{"role": "system", "content": system_prompt_finished}]
+        response = model.create_chat_completion(
+            messages=message_to_send,
+            response_format={"type": "json_object", "schema": {"type": "boolean"}}
+        )
+
+        return json.loads(response["choices"][0]["message"]["content"])
+
+    
     
     def break_up_and_summarize_text(self, text):
         model = self.get_model()
+
+        print("chunking text")
         
         system_prompt_subjects = '''You are provided with a document. Your task is to identify the major one or more subjects or concepts present in the document.
         List each subject or concept found in the document as a JSON array. Do not explain them. The subjects should be concise and accurately describe topics found in the text.
@@ -349,7 +368,10 @@ class LLMHandler:
         print(subject_list)
 
         subdocs = []
-        message_history = []  # Store previous LLM responses for context
+
+        messages = [
+                {"role": "user", "content": text}
+        ]
 
         for subject_item in subject_list:
             subject = subject_item["subject"]
@@ -363,13 +385,7 @@ class LLMHandler:
             use underscores "_" as spaces. Avoid tags that are not relevant to the subject but found elsewhere in the text, unless this subject is a subset of a larger subject also defined elsewhere.'''
 
             # Build the messages, including the history
-            messages = [
-                {"role": "user", "content": text},
-                {"role": "system", "content": system_prompt_subdoc}
-            ]
-            
-            # Append the message history from previous iterations
-            messages.extend(message_history)
+            messages.append({"role": "system", "content": system_prompt_subdoc})
 
             # Generate sub-document for this subject
             subdoc_response = model.create_chat_completion(
@@ -401,10 +417,15 @@ class LLMHandler:
             print(tags_trimmed)
 
             # Add this response to the message history for context in the next loop
-            message_history.append({
+            messages.append({
                 "role": "assistant",
                 "content": subdoc_response["choices"][0]["message"]["content"]
             })
+
+            if (self.finished_with_subdocs(messages, subject_list)):
+                print("LLM says all subjects already covered. Returning early.")
+                break
+
 
         return subdocs
 
@@ -431,8 +452,8 @@ class LLMHandler:
         #     truncated_tokens = tokens[-28000:]
         #     conversation_history = self._model.detokenize(truncated_tokens).decode('utf-8')
 
-        system_prompt_choice = '''Decide if the current conversation history has the factual answer to the question being posed in the most recent user 
-        message. If it does contain the information, say yes. If not, say no. Your output determines if a database lookup will be performed. If it does 
+        system_prompt_choice = '''Decide if the current conversation history has the specific factual answer to the question being posed in the most recent user 
+        message. If it does contain the information, say yes. If not, say no. If you are unsure at all, say no. Your output determines if a database lookup will be performed. If it does 
         not appear necessary to perform the database lookup, say yes. If it does appear necessary, say no.'''
 
         choice_response = model.create_chat_completion(

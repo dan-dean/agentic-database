@@ -53,7 +53,7 @@ class AsyncAgenticDatabase:
             time_spent = datetime.now() - self.processing_start_time
             return {
                 "status": "Processing",
-                "current_task": self.currently_processing,
+                "current_task": self.currently_processing[:20],
                 "time_spent": str(time_spent)
             }
         else:
