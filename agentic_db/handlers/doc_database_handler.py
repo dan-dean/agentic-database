@@ -64,7 +64,8 @@ def create_database(title):
         text TEXT,
         pdf TEXT,
         youtube_url TEXT,
-        document_type TEXT
+        document_type TEXT,
+        file_path TEXT
     )''')
     
     cursor.execute('''
@@ -115,7 +116,7 @@ def update_last_modified(db_file, cursor):
     UPDATE metadata SET last_modified = ? WHERE 1
     ''', (last_modified,))
 
-def update_custom_prompt(db_file, custom_prompt):
+def set_custom_prompt(db_file, custom_prompt):
     db_path = os.path.join(DATABASE_DIR, db_file)
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -191,7 +192,7 @@ def delete_database(db_file):
     else:
         return False
     
-def add_entry_to_database(db_file, text, sub_docs, pdf="null", youtube_url="null", document_type="text"):
+def add_entry_to_database(db_file, text, sub_docs, pdf="null", youtube_url="null", document_type="text", file_path="null"):
     db_path = os.path.join(DATABASE_DIR, db_file)
     
     if os.path.exists(db_path):
@@ -200,8 +201,8 @@ def add_entry_to_database(db_file, text, sub_docs, pdf="null", youtube_url="null
         
         uuid_str = str(uuid.uuid4())
         cursor.execute('''
-        INSERT INTO original_documents (uuid, text, pdf, youtube_url, document_type) VALUES (?, ?, ?, ?, ?)
-        ''', (uuid_str, text, pdf, youtube_url, document_type))
+        INSERT INTO original_documents (uuid, text, pdf, youtube_url, document_type, file_path) VALUES (?, ?, ?, ?, ?)
+        ''', (uuid_str, text, pdf, youtube_url, document_type, file_path))
 
         for sub_doc in sub_docs:
             sub_doc_uuid = str(uuid.uuid4())
@@ -252,6 +253,21 @@ def get_all_tags(db_file):
         
         conn.close()
         return [tag[0] for tag in tags]
+    else:
+        return None
+
+def get_all_original_document_file_paths(db_file):
+    db_path = os.path.join(DATABASE_DIR, db_file)
+    
+    if os.path.exists(db_path):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT file_path FROM original_documents')
+        file_paths = cursor.fetchall()
+        
+        conn.close()
+        return [file_path[0] for file_path in file_paths]
     else:
         return None
 

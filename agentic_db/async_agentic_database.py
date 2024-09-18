@@ -75,6 +75,15 @@ class AsyncAgenticDatabase:
     def get_existing_databases(self):
         return self.orchestrator.get_existing_databases()
     
+    def get_all_original_documents(self, db_file):
+        return self.orchestrator.get_all_original_documents(db_file)
+    
+    def get_database_custom_prompt(self, db_file):
+        return self.orchestrator.get_database_custom_prompt(db_file)
+    
+    def set_database_custom_prompt(self, db_file, new_prompt):
+        return self.orchestrator.set_database_custom_prompt(db_file, new_prompt)
+    
     def update_database_title(self, db_file, new_title):
         return self.orchestrator.update_database_title(db_file, new_title)
     

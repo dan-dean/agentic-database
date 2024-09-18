@@ -34,8 +34,17 @@ class Orchestrator:
         self.tag_handler.create_database(db_file)
         return db_file
 
+    def get_database_custom_prompt(self, db_file):
+        return get_custom_prompt(db_file)
+    
+    def set_database_custom_prompt(self, db_file, new_prompt):
+        return set_custom_prompt(db_file, new_prompt)
+
     def get_number_of_documents(self, db_file):
         return get_number_of_documents(db_file)
+
+    def get_all_original_documents(self, db_file):
+        return get_all_original_document_file_paths(db_file)
 
     def get_original_documents_from_textual_match(db_file, search_text):
         return get_original_documents_from_textual_match(db_file, search_text)
