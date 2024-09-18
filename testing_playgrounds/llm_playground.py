@@ -1,4 +1,6 @@
-from llm_handler import *
+from ..agentic_db.handlers import LLMHandler
+
+
 
 # test loading in model
 

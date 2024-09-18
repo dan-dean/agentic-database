@@ -3,7 +3,7 @@ import sqlite3
 import uuid
 from datetime import datetime
 
-DATABASE_DIR = './databases/docs'
+DATABASE_DIR = 'databases/docs'
 
 '''
 The SQL doc database handler module for agentic database. Provides simple operations with some specificity to the 
@@ -94,7 +94,8 @@ def create_database(title):
     cursor.execute('''
     CREATE TABLE metadata (
         last_modified TEXT,
-        title TEXT
+        title TEXT,
+        custom_prompt TEXT
     )''')
     
     # Insert initial metadata
@@ -113,6 +114,28 @@ def update_last_modified(db_file, cursor):
     cursor.execute('''
     UPDATE metadata SET last_modified = ? WHERE 1
     ''', (last_modified,))
+
+def update_custom_prompt(db_file, custom_prompt):
+    db_path = os.path.join(DATABASE_DIR, db_file)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+    UPDATE metadata SET custom_prompt = ? WHERE 1
+    ''', (custom_prompt,))
+
+    conn.commit()
+    conn.close()
+
+def get_custom_prompt(db_file):
+    db_path = os.path.join(DATABASE_DIR, db_file)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT custom_prompt FROM metadata')
+    custom_prompt = cursor.fetchone()
+    conn.close()
+    return custom_prompt[0] if custom_prompt else None
+
+
 
 def get_existing_databases():
     databases = []

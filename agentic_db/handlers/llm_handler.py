@@ -4,7 +4,7 @@ import os
 import contextlib
 import json
 
-MODELS_DIR = "./models/llm"
+MODELS_DIR = "models\llm"
 model_file_name = os.path.join(MODELS_DIR, "model_file_name.json")
 
 '''

@@ -1,6 +1,6 @@
 import shlex
 import os
-import async_agentic_database
+from agentic_db import async_agentic_database
 
 async_agentic_database = async_agentic_database.AsyncAgenticDatabase()
 

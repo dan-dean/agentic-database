@@ -7,8 +7,8 @@ import numpy as np
 import gc
 import warnings
 
-MODELS_DIR = './models/embedding'
-DATABASE_DIR = './databases/tags'
+MODELS_DIR = 'models/embedding'
+DATABASE_DIR = 'databases/tags'
 model_name = 'sentence-transformers/all-MiniLM-L6-v2'
 model_path = os.path.join(MODELS_DIR, model_name)
 embedding_dim = 384
