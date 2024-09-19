@@ -23,7 +23,7 @@ Available commands:
 - mk_db [database_name] (Create a new database)
 - rm_db [database_number] (Delete a database)
 - add [database_number] [document_path] (Add a document to the database)
-- send [query] [database_number] (Send a single query to the database)
+- ask [query] [database_number] (Send a single query to the database)
 - q_size (Get the size of the document and prompt queues)
 - status (Get the current status of the system)
 - thread [database_number] (Start a chat thread in the database)
@@ -342,7 +342,7 @@ def handle_command(command_input):
         queue_size()
     elif command == "status":
         status()
-    elif command == "send":
+    elif command == "ask":
         send_query(" ".join(args[1:]) if len(args) > 1 else None)
     elif command == "thread":
         start_thread(" ".join(args[1:]) if len(args) > 1 else None)
