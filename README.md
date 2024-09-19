@@ -30,13 +30,13 @@ In my experimentation, this solution has proved more accurate and finely tuned t
 
 A basic CLI implementation has been created to allow for easy interaction with the modules, albeit not with all the database parsing mentioned above. This CLI interacts with the async_agentic_database module which provides a queue-based system for loading in documents and queries.
 
-What's next
+## What's next
 
-The LLM agents in this system are not built with any existing libraries or frameworks, instead by constraining raw output to JSON schemas and grammars defined for the use-cases. Adding pydantic to increase the legibility of the LLM system is next.
+1. The LLM agents in this system are not built with any existing libraries or frameworks, instead by constraining raw output to JSON schemas and grammars defined for the use-cases. Adding pydantic to increase the legibility of the LLM system is next.
 
-The agentic document chunking system will be pulled out and further modularized to exist as a stand-alone package so that it is agnostic to the RAG system it is used with.
+2. The agentic document chunking system will be pulled out and further modularized to exist as a stand-alone package so that it is agnostic to the RAG system it is used with.
 
-I want to then experiment with the colBERT reranking system instead, while still utilizing a more automated and smart document chunking system as from the library described. ColBERT reranking offers more granular vector embeddings that may alay the fears present in muddied semantic meaning from traditional vector databases that reduce their accuracy. While we then sacrifice parseability present in the tagged-up SQL database, if colBERT retrieval is consistently accurate, then the mission has been accomplished.
+3. I want to then experiment with the colBERT reranking system instead, while still utilizing a more automated and smart document chunking system as from the library described. ColBERT reranking offers more granular vector embeddings that may alay the fears present in muddied semantic meaning from traditional vector databases that reduce their accuracy. While we then sacrifice parseability present in the tagged-up SQL database, if colBERT retrieval is consistently accurate, then the mission has been accomplished.
 
 
 ## Installation
