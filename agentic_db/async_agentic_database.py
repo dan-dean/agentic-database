@@ -15,17 +15,19 @@ class AsyncAgenticDatabase:
         self.orchestrator = Orchestrator()
         self.default_database = None
     
-    def add_document(self, document, callback=None):
+    def add_document(self, document, db_file=None, callback=None):
         """Add a document to the document queue with an optional callback."""
 
-        if not isinstance(document, (list, tuple)):
+        if db_file is None:
             if self.default_database is not None:
-                document = (document, self.default_database)
+                db_file = self.default_database
             else:
                 raise ValueError("Database must be provided if default database is not set.")
         
+        document_queue_object = (document[0], db_file, document[1])
+        
         with self.lock:
-            self.document_queue.put((document, callback))
+            self.document_queue.put((document_queue_object, callback))
             self.get_process()
 
     
@@ -52,7 +54,7 @@ class AsyncAgenticDatabase:
             time_spent = datetime.now() - self.processing_start_time
             return {
                 "status": "Processing",
-                "current_task": self.currently_processing[:20],
+                "current_task": self.currently_processing,
                 "time_spent": str(time_spent)
             }
         else:
@@ -66,22 +68,25 @@ class AsyncAgenticDatabase:
             self.processing_thread.daemon = True  # Ensure the thread ends with the main program
             self.processing_thread.start()
 
-    def split(self, queue_item):
-        return queue_item[0], queue_item[1]
-
     def set_new_system_prompt(self, new_prompt):
         return self.orchestrator.set_new_system_prompt(new_prompt)
 
     def get_existing_databases(self):
         return self.orchestrator.get_existing_databases()
     
-    def get_all_original_documents(self, db_file):
+    def get_all_original_documents(self, db_file = None):
+        if db_file is None:
+            db_file = self.default_database
         return self.orchestrator.get_all_original_documents(db_file)
     
-    def get_database_custom_prompt(self, db_file):
+    def get_database_custom_prompt(self, db_file = None):
+        if db_file is None:
+            db_file = self.default_database
         return self.orchestrator.get_database_custom_prompt(db_file)
     
-    def set_database_custom_prompt(self, db_file, new_prompt):
+    def set_database_custom_prompt(self, new_prompt, db_file = None):
+        if db_file is None:
+            db_file = self.default_database
         return self.orchestrator.set_database_custom_prompt(db_file, new_prompt)
     
     def update_database_title(self, db_file, new_title):
@@ -107,6 +112,7 @@ class AsyncAgenticDatabase:
     
     def set_default_database(self, db_file):
         self.default_database = db_file
+        print(self.default_database)
 
     def change_mode(self, mode):
         self.orchestrator.change_mode(mode)
@@ -133,7 +139,7 @@ class AsyncAgenticDatabase:
                 prompt_text, database_title = None, None
                 prompt, callback = self.prompt_queue.get()
                 with self.lock:
-                    prompt_text, database_title = self.split(prompt)
+                    prompt_text, database_title = prompt[0], prompt[1]
 
                     self.currently_processing = f"Prompt: {prompt_text}"
                     self.processing_start_time = datetime.now()
@@ -157,20 +163,22 @@ class AsyncAgenticDatabase:
             # Check for documents if no prompts
             elif not self.document_queue.empty():
                 document_text, database_title = None, None
-                document, callback = self.document_queue.get()
+                document_queue_object, callback = self.document_queue.get()
                 with self.lock:
-                    document_text, database_title = self.split(document)
-                    self.currently_processing = f"Document: {document_text}"
+                    document_text, database_title, file_path = document_queue_object[0], document_queue_object[1], document_queue_object[2]
+                    self.currently_processing = f"Document: {file_path}"
                     self.processing_start_time = datetime.now()
 
                 if database_title is None:
                     database_title = self.default_database
+                print(database_title)
 
-                self.orchestrator.process_document(document_text, database_title)
+                self.orchestrator.process_document(document_text, database_title, file_path)
                 
                 # Call the callback function if provided
                 response = {
-                    "document": document_text[:20],
+                    "document": file_path,
+                    "document_text" : document_text[:20],
                     "time_spent": str(datetime.now() - self.processing_start_time)
                 }
                 if callback:

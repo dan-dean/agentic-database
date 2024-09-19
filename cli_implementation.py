@@ -16,11 +16,14 @@ def help_command():
 Available commands:
 - help (Show this help message)
 - ls (Lists all databases)
+- ls_db [database_number] (List all documents in a database)
+- prompt [database_number] (Show the custom prompt for a database)
+- set_prompt [database_number] [new_prompt] (Set a custom prompt for a database)
 - set_db [database_number] (Set the default database)
 - mk_db [database_name] (Create a new database)
-- del_db [database_number] (Delete a database)
-- add_doc [document_path] [database_number] (Add a document to the database)
-- send_q [query] [database_number] (Send a single query to the database)
+- rm_db [database_number] (Delete a database)
+- add [database_number] [document_path] (Add a document to the database)
+- send [query] [database_number] (Send a single query to the database)
 - q_size (Get the size of the document and prompt queues)
 - status (Get the current status of the system)
 - thread [database_number] (Start a chat thread in the database)
@@ -31,6 +34,86 @@ def list_databases():
     databases = async_agentic_database.get_existing_databases()
     for i in range(len(databases)):
         print(f"{i + 1}. {databases[i]["title"]} - {databases[i]["last_modified"]}")
+
+def list_docs(db_number=None):
+    databases = async_agentic_database.get_existing_databases()
+
+    if db_number is not None:
+        try:
+            db_number = int(db_number) - 1
+        except ValueError:
+            print("Invalid database number. Please enter a valid number.")
+            return
+
+    if db_number is not None and 0 <= db_number < len(databases):
+        db_file = databases[db_number]["file"]
+    else:
+        if db_number is not None:
+            print(f"Database '{db_number}' not found.")
+            return
+    if db_number is not None:
+        docs = async_agentic_database.get_all_original_documents(db_file)
+    else:
+        docs = async_agentic_database.get_all_original_documents()
+    for i in range(len(docs)):
+        print(f"{i + 1}. {docs[i]}")
+
+def show_prompt(db_number=None):
+    databases = async_agentic_database.get_existing_databases()
+
+    if db_number is not None:
+        try:
+            db_number = int(db_number) - 1
+        except ValueError:
+            print("Invalid database number. Please enter a valid number.")
+            return
+
+    if db_number is not None and 0 <= db_number < len(databases):
+        db_file = databases[db_number]["file"]
+    else:
+        if db_number is not None:
+            print(f"Database '{db_number}' not found.")
+            return
+        else: 
+            db_file = async_agentic_database.default_database
+    if db_number is not None:
+        prompt = async_agentic_database.get_database_custom_prompt(db_file)
+    else:
+        prompt = async_agentic_database.get_database_custom_prompt()
+    print(f"Prompt for database '{databases[db_number]['title']}': {prompt}")
+
+def set_prompt(db_number=None, new_prompt=None):
+    databases = async_agentic_database.get_existing_databases()
+
+    if db_number is not None:
+        try:
+            db_number = int(db_number) - 1
+        except ValueError:
+            print("Invalid database number. Please enter a valid number.")
+            return
+
+    if db_number is not None and 0 <= db_number < len(databases):
+        db_file = databases[db_number]["file"]
+    else:
+        if db_number is not None:
+            print(f"Database '{db_number}' not found.")
+            return
+        elif db_number is None:
+            list_databases()
+            db_number = int(input("Enter the database # to modify: ")) - 1
+
+            
+    print(f"Setting prompt for database '{databases[db_number]['title']}'.")
+        
+    if not new_prompt:
+        new_prompt = input("Enter the new prompt: ")
+
+    if db_number is not None:
+        async_agentic_database.set_database_custom_prompt(new_prompt, db_file)
+    else:
+        async_agentic_database.set_database_custom_prompt(new_prompt)
+
+    print(f"Prompt for database '{databases[db_number]['title']}' set to: {new_prompt}")
 
 def set_default_database(db_number=None):
     global default_database
@@ -74,8 +157,9 @@ def delete_database(db_number=None):
     else:
         print(f"Database '{db_number}' not found.")
 
-def add_document(doc_name=None, db_number=None):
+def add_document(db_number=None, doc_name=None):
     databases = async_agentic_database.get_existing_databases()
+    db_file = None
 
     if db_number is not None:
         try:
@@ -84,7 +168,7 @@ def add_document(doc_name=None, db_number=None):
             print("Invalid database number. Please enter a valid number.")
             return
 
-    if db_number and 0 <= db_number < len(databases):
+    if db_number is not None and 0 <= db_number < len(databases):
         db_file = databases[db_number]["file"]
     elif db_number:
         print(f"Database '{db_number}' not found.")
@@ -105,18 +189,20 @@ def add_document(doc_name=None, db_number=None):
         return
 
     def callback(response):
-        document_text = response.get("document", "N/A")
+        doc_name = response.get("document", "N/A")
         time_spent = response.get("time_spent", "N/A")
+        doc_text = response.get("document_text", "N/A")
 
-        print(f"Document added: {document_text}")
+        print(f"Document added: {doc_name}")
+        print(doc_text)
         print(f"Time spent: {time_spent}")
 
-    if db_number is not None:
-        document = [document_text, db_file]
-        async_agentic_database.add_document(document, callback)
+    document = [document_text, doc_name]
+    if db_file is not None:
+        async_agentic_database.add_document(document, db_file=db_file, callback=callback)
     else:
         try:
-            async_agentic_database.add_document(document_text, callback)
+            async_agentic_database.add_document(document, callback=callback)
         except Exception as e:
             print(f"Error adding document: {e}")
 
@@ -233,13 +319,19 @@ def handle_command(command_input):
         help_command()
     elif command == "ls":
         list_databases()
+    elif command == "ls_db":
+        list_docs(args[1] if len(args) > 1 else None)
+    elif command == "prompt":
+        show_prompt(args[1] if len(args) > 1 else None)
+    elif command == "set_prompt":
+        set_prompt(args[1] if len(args) > 1 else None, args[2] if len(args) > 2 else None)
     elif command == "set_db":
         set_default_database(args[1] if len(args) > 1 else None)
     elif command == "mk_db":
         create_database(args[1] if len(args) > 1 else None)
-    elif command == "del_db":
+    elif command == "rm_db":
         delete_database(args[1] if len(args) > 1 else None)
-    elif command == "add_doc":
+    elif command == "add":
         if len(args) == 3:
             add_document(args[1], args[2])
         elif len(args) == 2:
@@ -250,7 +342,7 @@ def handle_command(command_input):
         queue_size()
     elif command == "status":
         status()
-    elif command == "send_q":
+    elif command == "send":
         send_query(" ".join(args[1:]) if len(args) > 1 else None)
     elif command == "thread":
         start_thread(" ".join(args[1:]) if len(args) > 1 else None)

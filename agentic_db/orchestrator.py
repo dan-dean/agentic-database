@@ -55,7 +55,7 @@ class Orchestrator:
     def get_all_tags(self, db_file):
         return get_all_tags(db_file)
 
-    def process_document(self, document, db_file):
+    def process_document(self, document, db_file, file_path = None):
         self.tag_handler.release_model()
         subdocs = self.llm_handler.break_up_and_summarize_text(document)
 
@@ -69,7 +69,7 @@ class Orchestrator:
 
         self.tag_handler.add_entry_to_database(db_file, subdocs_tags)
 
-        add_entry_to_database(db_file, document, subdocs)
+        add_entry_to_database(db_file, document, subdocs, file_path)
 
     def change_mode(self, mode):
         if mode not in ["chat_mode", "single_query"]:

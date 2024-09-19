@@ -193,7 +193,10 @@ def delete_database(db_file):
         return False
     
 def add_entry_to_database(db_file, text, sub_docs, pdf="null", youtube_url="null", document_type="text", file_path="null"):
+    print(db_file)
+    print(DATABASE_DIR)
     db_path = os.path.join(DATABASE_DIR, db_file)
+    print(file_path)
     
     if os.path.exists(db_path):
         conn = sqlite3.connect(db_path)
@@ -201,7 +204,7 @@ def add_entry_to_database(db_file, text, sub_docs, pdf="null", youtube_url="null
         
         uuid_str = str(uuid.uuid4())
         cursor.execute('''
-        INSERT INTO original_documents (uuid, text, pdf, youtube_url, document_type, file_path) VALUES (?, ?, ?, ?, ?)
+        INSERT INTO original_documents (uuid, text, pdf, youtube_url, document_type, file_path) VALUES (?, ?, ?, ?, ?, ?)
         ''', (uuid_str, text, pdf, youtube_url, document_type, file_path))
 
         for sub_doc in sub_docs:
