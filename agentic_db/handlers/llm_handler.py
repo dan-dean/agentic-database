@@ -7,6 +7,8 @@ import json
 MODELS_DIR = "models\\llm"
 model_file_name = os.path.join(MODELS_DIR, "model_file_name.json")
 
+subdoc_token_limit = 1000
+
 '''
 The LLMHandler class is a wrapper for the LLM model. It provides methods to interact with the model relevant to the larger agentic database use case
 such as generating tags, generating roadmaps, and generating responses with context. The class also handles the downloading of the model and
@@ -390,7 +392,8 @@ class LLMHandler:
             # Generate sub-document for this subject
             subdoc_response = model.create_chat_completion(
                 messages=messages,
-                response_format={"type": "json_object", "schema": subdoc_schema}
+                response_format={"type": "json_object", "schema": subdoc_schema},
+                max_tokens=subdoc_token_limit
             )
             
             subdoc_data = json.loads(subdoc_response["choices"][0]["message"]["content"]
