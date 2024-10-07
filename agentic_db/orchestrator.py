@@ -69,7 +69,7 @@ class Orchestrator:
 
         self.tag_handler.add_entry_to_database(db_file, subdocs_tags)
 
-        add_entry_to_database(db_file, document, subdocs, file_path)
+        add_entry_to_database(db_file, document, subdocs, file_path=file_path)
 
     def change_mode(self, mode):
         if mode not in ["chat_mode", "single_query"]:
