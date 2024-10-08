@@ -374,16 +374,15 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": subject_list_schema}
         )
 
+        print(subject_response["choices"][0]["message"]["content"])
+
         subject_list = json.loads(subject_response["choices"][0]["message"]["content"]
-                          .replace('\n', '\\n')
-                          .replace('\r', '\\r')
-                          .replace('\t', '\\t')
-                            .replace('"', '\\"')
-                            .replace('\\', '\\\\')
-                          .encode('utf-8', 'ignore').decode('utf-8'))["subjects"]
+                            .replace('\n', '\\n')
+                            .replace('\r', '\\r')
+                            .replace('\t', '\\t')
+                            .encode('utf-8', 'ignore').decode('utf-8'))["subjects"]
 
 
-        print(subject_list)
 
         subdocs = []
 
@@ -417,8 +416,6 @@ class LLMHandler:
                             .replace('\n', '\\n')
                             .replace('\r', '\\r')
                             .replace('\t', '\\t')
-                            .replace('"', '\\"')
-                            .replace('\\', '\\\\')
                             .encode('utf-8', 'ignore').decode('utf-8'))
                           
             tags_possible = subdoc_data["tags"]

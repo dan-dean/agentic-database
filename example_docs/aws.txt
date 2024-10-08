@@ -1,4 +1,4 @@
-Amazon Web Services Overview
+
 Amazon EC2 and Compute Services
 Amazon Elastic Compute Cloud (EC2) is a foundational service offered by AWS that provides scalable computing capacity in the cloud. EC2 allows businesses to run virtual servers tailored to their specific needs, from small test environments to full-scale production applications. EC2 instances can be configured with various compute capacities, operating systems, and networking features, making it a flexible solution for companies that require control over their infrastructure.
 

@@ -1,5 +1,3 @@
-Microsoft Services Overview
-============================
 
 Office 365
 ----------
