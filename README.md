@@ -43,8 +43,7 @@ A basic CLI implementation has been created to allow for easy interaction with t
 Prerequisites
 
     pip install huggingface_hub
-    pip install faiss
-    //fiass-cpu for cpu only, faiss-gpu-cu12 OR faiss-gpu-cu11 for CUDA 12.x or CUDA 11.x, Python 3.8+
+    pip install faiss-cpu
     pip install sentence_transformers
     pip install llama_cpp_python
 
