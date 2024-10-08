@@ -74,6 +74,10 @@ For example, to install the CUDA 12.1 wheel:
     pip install llama-cpp-python \
       --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
 
+I personally have had issues getting the wheel to download via the provided instructions. If you download the wheel file you need manually from the github release and install it, you may save yourself a headache and long wheel compilation times.
+
+So go to https://abetlen.github.io/llama-cpp-python/whl/cu124 (or your corresponding cu version) and just download the file you need, then pip install (local filepath)
+
 clone the repo
 
 Run cli_implementation.py
