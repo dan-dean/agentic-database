@@ -8,7 +8,7 @@ MODELS_DIR = "models\\llm"
 
 model_file_name = os.path.join(MODELS_DIR, "model_file_name.json")
 
-subdoc_token_limit = 1000
+subdoc_char_limit = 5000
 
 '''
 The LLMHandler class is a wrapper for the LLM model. It provides methods to interact with the model relevant to the larger agentic database use case
@@ -110,6 +110,7 @@ subdoc_schema = {
     "properties": {
         "subdoc_text": {
             "type": "string",
+            "maxLength": subdoc_char_limit,
             "description": "The subdoc text, mostly quoting from the source with minimal paraphrasing."
         },
         "tags": {
@@ -134,12 +135,12 @@ class LLMHandler:
     def __init__(self):
         if not os.path.exists(model_file_name):
             print("Downloading model...")
-            # llama_large_location = hf_hub_download(repo_id="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", 
-            #                 filename="Meta-Llama-3.1-8B-Instruct-Q8_0.gguf", 
-            #                 cache_dir=MODELS_DIR)
-            llama_large_location = hf_hub_download(repo_id="bartowski/Llama-3.2-3B-Instruct-GGUF", 
-                filename="Llama-3.2-3B-Instruct-f16.gguf", 
-                cache_dir=MODELS_DIR)
+            llama_large_location = hf_hub_download(repo_id="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", 
+                            filename="Meta-Llama-3.1-8B-Instruct-Q3_K_L.gguf", 
+                            cache_dir=MODELS_DIR)
+            # llama_large_location = hf_hub_download(repo_id="bartowski/Llama-3.2-3B-Instruct-GGUF", 
+            #     filename="Llama-3.2-3B-Instruct-f16.gguf", 
+            #     cache_dir=MODELS_DIR)
 
             #store model location in a json file
             model_json = {"model_file": llama_large_location}
@@ -405,15 +406,18 @@ class LLMHandler:
             # Generate sub-document for this subject
             subdoc_response = model.create_chat_completion(
                 messages=messages,
-                response_format={"type": "json_object", "schema": subdoc_schema},
-                max_tokens=subdoc_token_limit
+                response_format={"type": "json_object", "schema": subdoc_schema}
             )
             
+            print(subdoc_response["choices"][0]["message"]["content"])
+
             subdoc_data = json.loads(subdoc_response["choices"][0]["message"]["content"]
-                          .replace('\n', '\\n')
-                          .replace('\r', '\\r')
-                          .replace('\t', '\\t')
-                          .encode('utf-8', 'ignore').decode('utf-8'))
+                            .replace('\n', '\\n')
+                            .replace('\r', '\\r')
+                            .replace('\t', '\\t')
+                            .replace('"', '\\"')
+                            .replace('\\', '\\\\')
+                            .encode('utf-8', 'ignore').decode('utf-8'))
                           
             tags_possible = subdoc_data["tags"]
             tags_trimmed = []
@@ -429,7 +433,6 @@ class LLMHandler:
                 "tags": tags_trimmed
             })
 
-            print(subdoc_data["subdoc_text"])
             print(tags_trimmed)
 
             # Add this response to the message history for context in the next loop
