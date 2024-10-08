@@ -5,6 +5,7 @@ import contextlib
 import json
 
 MODELS_DIR = "models\\llm"
+
 model_file_name = os.path.join(MODELS_DIR, "model_file_name.json")
 
 subdoc_token_limit = 1000
@@ -154,15 +155,24 @@ class LLMHandler:
         if self._model is None:
             with open(model_file_name, "r") as f:
                 model_json = json.load(f)
-                # model_file = model_json["model_file"] # will be used when the model weights are matching (huggingface reports 292 tensors when 291)
-            self._model = llama_cpp.Llama("models\\llm\\models--lmstudio-community--Meta-Llama-3.1-8B-Instruct-GGUF\\snapshots\\8601e6db71269a2b12255ebdf09ab75becf22cc8\\Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
+            self._model = llama_cpp.Llama(model_json["model_file"],
                                             n_gpu_layers=-1,
                                             n_ctx=30000,
                                             flash_attn=True,
                                             type_k=8,
                                             type_v=8,
                                             verbose=False
-                                        )
+            )
+            # # (huggingface reports 292 tensors when 291 for lmstudio's 3.1 8B)
+            # self._model = llama_cpp.Llama("models\\llm\\models--lmstudio-community--Meta-Llama-3.1-8B-Instruct-GGUF\\snapshots\\8601e6db71269a2b12255ebdf09ab75becf22cc8\\Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
+            #                                 n_gpu_layers=-1,
+            #                                 n_ctx=30000,
+            #                                 flash_attn=True,
+            #                                 type_k=8,
+            #                                 type_v=8,
+            #                                 verbose=False
+            #                             )
+
         return self._model
         
     def release_model(self):
