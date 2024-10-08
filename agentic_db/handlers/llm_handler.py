@@ -378,6 +378,8 @@ class LLMHandler:
                           .replace('\n', '\\n')
                           .replace('\r', '\\r')
                           .replace('\t', '\\t')
+                            .replace('"', '\\"')
+                            .replace('\\', '\\\\')
                           .encode('utf-8', 'ignore').decode('utf-8'))["subjects"]
 
 
