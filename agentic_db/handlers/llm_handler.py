@@ -133,9 +133,12 @@ class LLMHandler:
     def __init__(self):
         if not os.path.exists(model_file_name):
             print("Downloading model...")
-            llama_large_location = hf_hub_download(repo_id="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", 
-                            filename="Meta-Llama-3.1-8B-Instruct-Q8_0.gguf", 
-                            cache_dir=MODELS_DIR)
+            # llama_large_location = hf_hub_download(repo_id="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", 
+            #                 filename="Meta-Llama-3.1-8B-Instruct-Q8_0.gguf", 
+            #                 cache_dir=MODELS_DIR)
+            llama_large_location = hf_hub_download(repo_id="bartowski/Llama-3.2-3B-Instruct-GGUF", 
+                filename="Llama-3.2-3B-Instruct-f16.gguf", 
+                cache_dir=MODELS_DIR)
 
             #store model location in a json file
             model_json = {"model_file": llama_large_location}
