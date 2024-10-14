@@ -1,4 +1,7 @@
 import llama_cpp
+from pydantic import BaseModel, Field
+import instructor
+from typing import List
 from huggingface_hub import hf_hub_download
 import os
 import contextlib
@@ -47,6 +50,38 @@ tags ::= tag ("," tag)*
 tag ::= alphanumeric | "_"
 alphanumeric ::= [a-zA-Z0-9]+
 """
+
+class Step(BaseModel):
+    query: List[str] = Field(
+        ..., 
+        description="A list of alphanumeric lowercase strings with underscores, representing database queries."
+    )
+    explanation: str = Field(
+        ..., 
+        description="A string explaining the purpose of the query."
+    )
+
+class Roadmap(BaseModel):
+    steps: List[Step] = Field(..., description="A list of steps containing queries and their explanations.")
+
+
+class Choice(BaseModel):
+    choice: str = Field(..., enum=["no", "yes"])
+    
+    class Config:
+        extra = "forbid"
+
+
+class Subject(BaseModel):
+    subject: str = Field(..., description="A subject or concept found in the document.")
+
+class SubjectList(BaseModel):
+    subjects: List[Subject] = Field(..., description="A list of subjects or concepts found in the document.")
+
+
+class Subdoc(BaseModel):
+    subdoc_text: str = Field(..., max_length=subdoc_char_limit, description="The subdoc text, mostly quoting from the source with minimal paraphrasing.")
+    tags: List[str] = Field(..., min_items=1, pattern=r"^[a-z0-9_]+$", description="A list of tags describing the subject or concept found in the subdoc.")
 
 roadmap_schema = {
   "type": "object",
