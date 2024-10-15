@@ -1,9 +1,9 @@
 import llama_cpp
 from pydantic import BaseModel, Field
 import instructor
-from typing import List
+from typing import List, Dict, Any
 from huggingface_hub import hf_hub_download
-import os
+import os, sys
 import contextlib
 import json
 
@@ -191,14 +191,21 @@ class LLMHandler:
         if self._model is None:
             with open(model_file_name, "r") as f:
                 model_json = json.load(f)
+
             self._model = llama_cpp.Llama(model_json["model_file"],
-                                            n_gpu_layers=-1,
-                                            n_ctx=30000,
-                                            flash_attn=True,
-                                            type_k=8,
-                                            type_v=8,
-                                            verbose=False
+                                    n_gpu_layers=-1,
+                                    n_ctx=30000,
+                                    flash_attn=True,
+                                    type_k=8,
+                                    type_v=8,
+                                    verbose=False
             )
+
+            self._create = instructor.patch(
+                create=self._model.create_chat_completion_openai_v1,
+                mode=instructor.Mode.JSON_SCHEMA,
+            )
+
             # # (huggingface reports 292 tensors when 291 for lmstudio's 3.1 8B)
             # self._model = llama_cpp.Llama("models\\llm\\models--lmstudio-community--Meta-Llama-3.1-8B-Instruct-GGUF\\snapshots\\8601e6db71269a2b12255ebdf09ab75becf22cc8\\Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
             #                                 n_gpu_layers=-1,
@@ -209,15 +216,19 @@ class LLMHandler:
             #                                 verbose=False
             #                             )
 
-        return self._model
+            
+
+        return self._model, self._create
         
     def release_model(self):
         if self._model is not None:
             del self._model
             self._model = None
+            del self._create
+            self._create = None
     
     def get_token_count(self, text):
-        model = self.get_model()
+        model,  = self.get_model()
         text_bytes = text.encode('utf-8')
         return len(model.tokenize(text_bytes))
     
@@ -315,9 +326,66 @@ class LLMHandler:
         text_tags = output_str.split(",")
 
         return text_tags
+
+    def get_structured_output(self,
+            messages: List[Dict[str, str]],
+            response_model: BaseModel,
+            verbose: bool = False
+        ):
+        """
+        Streams the model output, updating the terminal line with partial results,
+        and returns the accumulated data as a dictionary.
+
+        Args:
+            messages (List[Dict[str, str]]): The messages to send to the model.
+            response_model (BaseModel): The Pydantic model class defining the expected output.
+            verbose (bool): If True, updates the terminal with streaming output.
+
+        Returns:
+            Dict[str, Any]: The accumulated data as a dictionary.
+        """
+
+        _, create = self.get_model()
+
+        extraction_stream = create(
+            response_model=instructor.Partial[response_model],
+            messages=messages,
+            stream=True,
+        )
+        
+        accumulated_data = {}
+        if verbose:
+            previous_output_length = 0
+        
+        for extraction in extraction_stream:
+            partial_data = extraction.model_dump()
+            accumulated_data.update(partial_data)
+            
+            if verbose:
+                # Convert accumulated_data to a compact JSON string
+                output = json.dumps(accumulated_data, separators=(',', ':'))
+                
+                # Calculate the length difference to pad with spaces if necessary
+                output_length = len(output)
+                padding_length = max(previous_output_length - output_length, 0)
+                
+                # Move the cursor back to the beginning of the line
+                sys.stdout.write('\r')
+                # Print the updated output with padding spaces
+                sys.stdout.write(output + ' ' * padding_length)
+                # Flush the output buffer to ensure it appears in the terminal
+                sys.stdout.flush()
+                
+                # Update the previous_output_length for the next iteration
+                previous_output_length = output_length
+        
+        if verbose:
+            # Move to the next line after the stream is complete
+            sys.stdout.write('\n')
+        
+        return accumulated_data
     
     def generate_roadmap(self, text):
-        model = self.get_model()
         system_prompt = '''You are a knowledge base system orchestrator module. You are provided a prompt or query, you do not answer the prompt. 
         You are responsible for creating a functional set of steps to retrieve information from the knowledge base to best answer the prompt.
         You respond in json format with the steps to retrieve the information and explain what you are doing. You can query the database for 
@@ -329,8 +397,8 @@ class LLMHandler:
         Example of a multi query plan: What's the difference between the prime number theorem in and euler's theorem with coprimes?
         Response should be: { "steps": [ { "query": "prime_number_theorem", "explanation": "Gathering information on the prime number theorem" } , { "query": "euler_theorem,coprimes", "explanation": "Gathering information on euler's theorem" } ] }
         Do not mention the example concepts or tags in your response. Generate an answer specifically for your provided prompt as follows.'''
-        roadmap_response = model.create_chat_completion(
-            messages=[
+        
+        messages=[
                 {
                     "role": "system",
                     "content": system_prompt
@@ -339,23 +407,18 @@ class LLMHandler:
                     "role": "user",
                     "content": text
                 }
-            ],
-            response_format={"type": "json_object", "schema": roadmap_schema}
-        )
-
-        roadmap_json = json.loads(roadmap_response["choices"][0]["message"]["content"]
-                          .replace('\n', '\\n')
-                          .replace('\r', '\\r')
-                          .replace('\t', '\\t')
-                          .encode('utf-8', 'ignore').decode('utf-8'))
+            ]
         
-        steps = roadmap_json["steps"]
 
+        roadmap = self.get_structured_output(messages=messages, response_model=Roadmap, verbose=True)
+
+        steps = roadmap["steps"]
+        
         roadmap = [[step["query"].split(","), step["explanation"]] for step in steps]
         return roadmap
     
     def generate_response_with_context(self, conversation_history, context):
-        model=self.get_model()
+        model,_=self.get_model()
 
         context_str = "\n".join(context)
         combined_text = "\nRetrieved context:\n" + context_str
@@ -370,7 +433,6 @@ class LLMHandler:
     
 
     def finished_with_subdocs(self, messages, subject_list):
-        model=self.get_model()
 
         system_prompt_finished = '''Have the generated sub-documents covered all the subjects or concepts in the document? There may be subjects in this list that are redundant or 
         unneccesary. If the sub-documents created so far have covered all subjects listed in the following list, return True. Else, return False. If you believe the entirety of the 
@@ -382,9 +444,9 @@ class LLMHandler:
             response_format={"type": "json_object", "schema": {"type": "boolean"}}
         )
 
-        return json.loads(response["choices"][0]["message"]["content"])
+        choice = self.get_structured_output(messages=message_to_send, response_model=Choice, verbose=True)
 
-    
+        return choice["choice"] == "yes"
     
     def break_up_and_summarize_text(self, text):
         model = self.get_model()
