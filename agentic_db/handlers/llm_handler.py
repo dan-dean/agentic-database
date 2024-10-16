@@ -162,12 +162,12 @@ class LLMHandler:
             self._create = None
 
     def get_token_count(self, text):
-        (model,) = self.get_model()
+        model,_ = self.get_model()
         text_bytes = text.encode("utf-8")
         return len(model.tokenize(text_bytes))
 
     def get_token_sets(self, tags_actual):
-        model = self.get_model()
+        model,_ = self.get_model()
         token_sets = []
 
         for tag in tags_actual:
@@ -202,7 +202,7 @@ class LLMHandler:
         return grammar_text
 
     def return_relevant_tags(self, text, tags_actual):
-        model = self.get_model()
+        model,_ = self.get_model()
 
         # Ensure tags_actual is a list of token sets and include a "nothing" tag option
         token_sets = self.get_token_sets(tags_actual)  # Split tags into tokens
@@ -252,7 +252,7 @@ class LLMHandler:
         return tags_trimmed
 
     def generate_tags(self, text):
-        model = self.get_model()
+        model,_ = self.get_model()
         prompt = """Given the following text, generate a tag or a list of tags that describe subjects or the contents of the text. These 
         tags will be metadata associated with the text within a database and should fully describe subjects and concepts present in the text.
         The list should be comma-delimited.\nText\n"""
@@ -404,7 +404,10 @@ class LLMHandler:
         # First, identify the subjects in the text
 
         subject_response = self.get_structured_output(
-            messages=subject_response["messages"],
+            messages=[
+                {"role": "user", "content": text},
+                {"role": "system", "content": system_prompt_subjects}
+            ],
             response_model=SubjectList,
             verbose=True,
         )
