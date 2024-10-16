@@ -1,17 +1,18 @@
 import llama_cpp
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 import instructor
-from typing import List, Dict, Any
+from typing import List, Dict, Annotated
 from huggingface_hub import hf_hub_download
 import os, sys
 import contextlib
 import json
+import shutil
 
 MODELS_DIR = "models\\llm"
 
 model_file_name = os.path.join(MODELS_DIR, "model_file_name.json")
 
-subdoc_char_limit = 5000
+subdoc_char_limit = 100
 
 """
 The LLMHandler class is a wrapper for the LLM model. It provides methods to interact with the model relevant to the larger agentic database use case
@@ -85,16 +86,19 @@ class SubjectList(BaseModel):
     )
 
 
+
+TagType = Annotated[
+    str,
+    StringConstraints(pattern=r"^[a-z0-9_]+$")
+]
+
 class Subdoc(BaseModel):
     subdoc_text: str = Field(
         ...,
-        max_length=subdoc_char_limit,
         description="The subdoc text, mostly quoting from the source with minimal paraphrasing.",
     )
-    tags: List[str] = Field(
+    tags: List[TagType] = Field(
         ...,
-        min_items=1,
-        pattern=r"^[a-z0-9_]+$",
         description="A list of tags describing the subject or concept found in the subdoc.",
     )
 
@@ -145,6 +149,7 @@ class LLMHandler:
                 type_k=8,
                 type_v=8,
                 verbose=False,
+                repeat_penalty=1.1,
             )
 
             self._create = instructor.patch(
@@ -270,6 +275,24 @@ class LLMHandler:
         text_tags = output_str.split(",")
 
         return text_tags
+    
+    def get_num_lines(self, text):
+        """Calculate the number of terminal lines the text occupies."""
+        terminal_width = shutil.get_terminal_size().columns
+        lines = text.split('\n')
+        num_lines = 0
+        for line in lines:
+            # Calculate the number of terminal lines for each line
+            line_length = len(line)
+            num_terminal_lines = max(1, (line_length + terminal_width - 1) // terminal_width)
+            num_lines += num_terminal_lines
+        return num_lines
+
+    def clear_lines(self, num_lines):
+        """Move the cursor up num_lines and clear those lines."""
+        for _ in range(num_lines):
+            sys.stdout.write('\033[1A')  # Move cursor up one line
+            sys.stdout.write('\033[2K')  # Clear entire line
 
     def get_structured_output(
         self,
@@ -297,37 +320,35 @@ class LLMHandler:
             messages=messages,
             stream=True,
         )
-
+        
         accumulated_data = {}
-        if verbose:
-            previous_output_length = 0
-
+        previous_num_lines = 0
+        
         for extraction in extraction_stream:
             partial_data = extraction.model_dump()
             accumulated_data.update(partial_data)
-
+            
             if verbose:
-                # Convert accumulated_data to a compact JSON string
-                output = json.dumps(accumulated_data, separators=(",", ":"))
-
-                # Calculate the length difference to pad with spaces if necessary
-                output_length = len(output)
-                padding_length = max(previous_output_length - output_length, 0)
-
-                # Move the cursor back to the beginning of the line
-                sys.stdout.write("\r")
-                # Print the updated output with padding spaces
-                sys.stdout.write(output + " " * padding_length)
-                # Flush the output buffer to ensure it appears in the terminal
+                # Convert accumulated_data to a pretty JSON string
+                output = json.dumps(accumulated_data, indent=2)
+                
+                # Calculate the number of lines the output occupies
+                num_lines = self.get_num_lines(output)
+                
+                # Clear previous output
+                if previous_num_lines > 0:
+                    self.clear_lines(previous_num_lines)
+                
+                # Print the new output
+                sys.stdout.write(output + '\n')
                 sys.stdout.flush()
-
-                # Update the previous_output_length for the next iteration
-                previous_output_length = output_length
-
+                
+                # Update previous_num_lines for the next iteration
+                previous_num_lines = num_lines
+        
         if verbose:
-            # Move to the next line after the stream is complete
-            sys.stdout.write("\n")
-
+            sys.stdout.write('\n')
+        
         return accumulated_data
 
     def generate_roadmap(self, text):
@@ -354,7 +375,7 @@ class LLMHandler:
 
         steps = roadmap["steps"]
 
-        roadmap = [[step["query"].split(","), step["explanation"]] for step in steps]
+        roadmap = [[step["query"], step["explanation"]] for step in steps]
         return roadmap
 
     def generate_response_with_context(self, conversation_history, context):
@@ -388,7 +409,6 @@ class LLMHandler:
         return choice["choice"] == "yes"
 
     def break_up_and_summarize_text(self, text):
-        model = self.get_model()
 
         print("chunking text")
 
@@ -408,9 +428,11 @@ class LLMHandler:
                 {"role": "user", "content": text},
                 {"role": "system", "content": system_prompt_subjects}
             ],
-            response_model=SubjectList,
-            verbose=True,
+            response_model=SubjectList, verbose=True
         )
+
+        print("subjects:")
+        print(subject_response)
 
         subject_list = subject_response["subjects"]
 
@@ -432,6 +454,7 @@ class LLMHandler:
             # Build the messages, including the history
             messages.append({"role": "system", "content": system_prompt_subdoc})
 
+
             # Generate sub-document for this subject
 
             subdoc_response = self.get_structured_output(
@@ -450,13 +473,16 @@ class LLMHandler:
                 {"subdoc_text": subdoc_response["subdoc_text"], "tags": tags_trimmed}
             )
 
+            print("subdoc:")
+            print(subdocs[-1])
+
             print(tags_trimmed)
 
             # Add this response to the message history for context in the next loop
             messages.append(
                 {
                     "role": "assistant",
-                    "content": subdoc_response["choices"][0]["message"]["content"],
+                    "content": str(subdoc_response),
                 }
             )
 
@@ -494,8 +520,7 @@ class LLMHandler:
         choice_response = self.get_structured_output(
             messages=conversation_history
             + [{"role": "system", "content": system_prompt_choice}],
-            response_model=Choice,
-            verbose=True,
+            response_model=Choice, verbose=True
         )
 
         return choice_response["choice"] == "yes"
