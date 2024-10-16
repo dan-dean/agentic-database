@@ -1,5 +1,4 @@
-from ..agentic_db.handlers import LLMHandler
-
+from agentic_db.handlers.llm_handler import LLMHandler
 
 
 # test loading in model
@@ -18,7 +17,7 @@ AWS Lambda is an example of a serverless computing model, allowing developers to
 
 print("token count test")
 
-print(llm_handler.get_token_count(cloud_compute_text))  
+print(llm_handler.get_token_count(cloud_compute_text))
 
 print("the big one, testing summary and chunking on small scale")
 
@@ -63,5 +62,3 @@ roadmap_2_step = llm_handler.generate_roadmap(prompt_2_step)
 print(roadmap_2_step)
 
 llm_handler.release_model()
-
-
