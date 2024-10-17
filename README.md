@@ -1,3 +1,7 @@
+## pydantic-llm
+
+This implementation uses pydantic and streaming to validate schemas coming out of the LLM. I don't think this is going anywhere as pydantic does not affect token level generation. Llama-cpp-python allows for strict schema injection where the output of the LLM is directly constrained to tokens that match a given schema or grammar. This allows for always valid JSON. Pydantic and Instructor give useful typing and struct/dict returns from calls, but it is not 100% functional and will fail, despite the retry and lookahead functionalities. Pydantic does not help us here.
+
 # agentic-database
 
 A novel implementation of RAG and a data processor utilizing LLM agents at every step.

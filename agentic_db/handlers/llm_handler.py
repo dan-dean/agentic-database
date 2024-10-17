@@ -86,11 +86,8 @@ class SubjectList(BaseModel):
     )
 
 
+TagType = Annotated[str, StringConstraints(pattern=r"^[a-z0-9_]+$")]
 
-TagType = Annotated[
-    str,
-    StringConstraints(pattern=r"^[a-z0-9_]+$")
-]
 
 class Subdoc(BaseModel):
     subdoc_text: str = Field(
@@ -150,6 +147,9 @@ class LLMHandler:
                 type_v=8,
                 verbose=False,
                 repeat_penalty=1.1,
+                draft_model=llama_cpp.llama_speculative.LlamaPromptLookupDecoding(
+                    num_pred_tokens=10
+                ),
             )
 
             self._create = instructor.patch(
@@ -167,12 +167,12 @@ class LLMHandler:
             self._create = None
 
     def get_token_count(self, text):
-        model,_ = self.get_model()
+        model, _ = self.get_model()
         text_bytes = text.encode("utf-8")
         return len(model.tokenize(text_bytes))
 
     def get_token_sets(self, tags_actual):
-        model,_ = self.get_model()
+        model, _ = self.get_model()
         token_sets = []
 
         for tag in tags_actual:
@@ -207,7 +207,7 @@ class LLMHandler:
         return grammar_text
 
     def return_relevant_tags(self, text, tags_actual):
-        model,_ = self.get_model()
+        model, _ = self.get_model()
 
         # Ensure tags_actual is a list of token sets and include a "nothing" tag option
         token_sets = self.get_token_sets(tags_actual)  # Split tags into tokens
@@ -257,7 +257,7 @@ class LLMHandler:
         return tags_trimmed
 
     def generate_tags(self, text):
-        model,_ = self.get_model()
+        model, _ = self.get_model()
         prompt = """Given the following text, generate a tag or a list of tags that describe subjects or the contents of the text. These 
         tags will be metadata associated with the text within a database and should fully describe subjects and concepts present in the text.
         The list should be comma-delimited.\nText\n"""
@@ -275,24 +275,26 @@ class LLMHandler:
         text_tags = output_str.split(",")
 
         return text_tags
-    
+
     def get_num_lines(self, text):
         """Calculate the number of terminal lines the text occupies."""
         terminal_width = shutil.get_terminal_size().columns
-        lines = text.split('\n')
+        lines = text.split("\n")
         num_lines = 0
         for line in lines:
             # Calculate the number of terminal lines for each line
             line_length = len(line)
-            num_terminal_lines = max(1, (line_length + terminal_width - 1) // terminal_width)
+            num_terminal_lines = max(
+                1, (line_length + terminal_width - 1) // terminal_width
+            )
             num_lines += num_terminal_lines
         return num_lines
 
     def clear_lines(self, num_lines):
         """Move the cursor up num_lines and clear those lines."""
         for _ in range(num_lines):
-            sys.stdout.write('\033[1A')  # Move cursor up one line
-            sys.stdout.write('\033[2K')  # Clear entire line
+            sys.stdout.write("\033[1A")  # Move cursor up one line
+            sys.stdout.write("\033[2K")  # Clear entire line
 
     def get_structured_output(
         self,
@@ -320,35 +322,35 @@ class LLMHandler:
             messages=messages,
             stream=True,
         )
-        
+
         accumulated_data = {}
         previous_num_lines = 0
-        
+
         for extraction in extraction_stream:
             partial_data = extraction.model_dump()
             accumulated_data.update(partial_data)
-            
+
             if verbose:
                 # Convert accumulated_data to a pretty JSON string
                 output = json.dumps(accumulated_data, indent=2)
-                
+
                 # Calculate the number of lines the output occupies
                 num_lines = self.get_num_lines(output)
-                
+
                 # Clear previous output
                 if previous_num_lines > 0:
                     self.clear_lines(previous_num_lines)
-                
+
                 # Print the new output
-                sys.stdout.write(output + '\n')
+                sys.stdout.write(output + "\n")
                 sys.stdout.flush()
-                
+
                 # Update previous_num_lines for the next iteration
                 previous_num_lines = num_lines
-        
+
         if verbose:
-            sys.stdout.write('\n')
-        
+            sys.stdout.write("\n")
+
         return accumulated_data
 
     def generate_roadmap(self, text):
@@ -426,9 +428,10 @@ class LLMHandler:
         subject_response = self.get_structured_output(
             messages=[
                 {"role": "user", "content": text},
-                {"role": "system", "content": system_prompt_subjects}
+                {"role": "system", "content": system_prompt_subjects},
             ],
-            response_model=SubjectList, verbose=True
+            response_model=SubjectList,
+            verbose=True,
         )
 
         print("subjects:")
@@ -453,7 +456,6 @@ class LLMHandler:
 
             # Build the messages, including the history
             messages.append({"role": "system", "content": system_prompt_subdoc})
-
 
             # Generate sub-document for this subject
 
@@ -520,7 +522,8 @@ class LLMHandler:
         choice_response = self.get_structured_output(
             messages=conversation_history
             + [{"role": "system", "content": system_prompt_choice}],
-            response_model=Choice, verbose=True
+            response_model=Choice,
+            verbose=True,
         )
 
         return choice_response["choice"] == "yes"
