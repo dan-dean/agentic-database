@@ -32,7 +32,7 @@ A basic CLI implementation has been created to allow for easy interaction with t
 
 ## What's next
 
-1. The LLM agents in this system are not built with any existing libraries or frameworks, instead by constraining raw output to JSON schemas and grammars defined for the use-cases. Adding pydantic to increase the legibility of the LLM system is next.
+1. The LLM agents in this system are not built with any existing libraries or frameworks, instead by constraining raw output to JSON schemas and grammars defined for the use-cases. A̶d̶d̶i̶n̶g̶ p̶y̶d̶a̶n̶t̶i̶c̶ t̶o̶ i̶n̶c̶r̶e̶a̶s̶e̶ t̶h̶e̶ l̶e̶g̶i̶b̶i̶l̶i̶t̶y̶ o̶f̶ t̶h̶e̶ L̶L̶M̶ s̶y̶s̶t̶e̶m̶ i̶s̶ n̶e̶x̶t̶.
 
    Pydantic does not support direct JSON schema injection for token-level guidance, just interesting prompting methods with no gaurantee of actual JSON being returned. This makes it unusable for this project, and with the only other solution being forking it and making my own version to allow for this functionality, then publishing that library, we will use our raw JSON implementation instead.
 
