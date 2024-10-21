@@ -34,6 +34,8 @@ A basic CLI implementation has been created to allow for easy interaction with t
 
 1. The LLM agents in this system are not built with any existing libraries or frameworks, instead by constraining raw output to JSON schemas and grammars defined for the use-cases. Adding pydantic to increase the legibility of the LLM system is next.
 
+   Pydantic does not support direct JSON schema injection for token-level guidance, just interesting prompting methods with no gaurantee of actual JSON being returned. This makes it unusable for this project, and with the only other solution being forking it and making my own version to allow for this functionality, then publishing that library, we will use our raw JSON implementation instead.
+
 2. The agentic document chunking system will be pulled out and further modularized to exist as a stand-alone package so that it is agnostic to the RAG system it is used with.
 
 3. I want to then experiment with the colBERT reranking system instead, while still utilizing a more automated and smart document chunking system as from the library described. ColBERT reranking offers more granular vector embeddings that may alay the fears present in muddied semantic meaning from traditional vector databases that reduce their accuracy. While we then sacrifice parseability present in the tagged-up SQL database, if colBERT retrieval is consistently accurate, then the mission has been accomplished.
