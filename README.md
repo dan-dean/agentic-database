@@ -49,6 +49,8 @@ Prerequisites
     pip install sentence_transformers
     pip install llama_cpp_python
 
+Currently, the model used is Meta-Llama-3.1-8B-Instruct-Q3_K_L. It takes 4.2GB on disk. For smooth operation, you will want 8GB of VRAM available to you. 6GB will work too.
+
 About using GPU acceleration for llama_cpp:
 
 From the [llama_cpp_python](https://github.com/abetlen/llama-cpp-python) repo:
