@@ -3,13 +3,14 @@ from huggingface_hub import hf_hub_download
 import os
 import contextlib
 import json
-from print_handler import PrintHandler
+from agentic_db.handlers.print_handler import PrintHandler
+
 
 MODELS_DIR = "models\\llm"
 
 model_file_name = os.path.join(MODELS_DIR, "model_file_name.json")
 
-subdoc_char_limit = 5000
+subdoc_word_limit = 1500
 
 """
 The LLMHandler class is a wrapper for the LLM model. It provides methods to interact with the model relevant to the larger agentic database use case
@@ -98,22 +99,27 @@ subject_list_schema = {
 subdoc_schema = {
     "type": "object",
     "properties": {
-        "subdoc_text": {
-            "type": "string",
-            "maxLength": subdoc_char_limit,
-            "description": "The subdoc text, mostly quoting from the source with minimal paraphrasing.",
-        },
-        "tags": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "pattern": "^[a-z0-9_]+$",
-                "description": "A tag describing the subject or concept found in the subdoc.",
+        "subdoc": {
+            "type": "object",
+            "properties": {
+                "subdoc_text": {
+                    "type": "string",
+                    "description": "The subdoc text, mostly quoting from the source with minimal paraphrasing.",
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9_]+$",
+                        "description": "A tag describing the subject or concept found in the subdoc.",
+                    },
+                    "minItems": 1,
+                },
             },
-            "minItems": 1,
-        },
+            "required": ["subdoc_text", "tags"],
+        }
     },
-    "required": ["subdoc_text", "tags"],
+    "required": ["subdoc"],
 }
 
 
@@ -295,16 +301,8 @@ class LLMHandler:
             {"role": "user", "content": text},
         ]
 
-        roadmap_response = PrintHandler.get_structured_output(
-            model, messages, roadmap_response, verbose=True
-        )
-
-        roadmap_response = model.create_chat_completion(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text},
-            ],
-            response_format={"type": "json_object", "schema": roadmap_schema},
+        roadmap_response, assistant_content = PrintHandler.get_structured_output(
+            model, messages, roadmap_schema, verbose=True
         )
 
         steps = roadmap_response["steps"]
@@ -337,7 +335,7 @@ class LLMHandler:
             {"role": "system", "content": system_prompt_finished}
         ]
 
-        response = PrintHandler.get_structured_output(
+        response, assistant_content = PrintHandler.get_structured_output(
             model, message_to_send, choice_schema, verbose=True
         )
 
@@ -352,7 +350,8 @@ class LLMHandler:
         List each subject or concept found in the document as a JSON array. Do not explain them. The subjects should be concise and accurately describe topics found in the text.
         Subjects should be as if you had to chunk up the given document into discrete chapters or topics. These subjects will be used to subdivide the text into documents to be 
         placed into a database, so smart chunking is crucial. For example, if a document is a list of 100 rapid-fire topics, one subject should probably be what describes the list as 
-        a whole instead of one subject for every entry in the list. Not every single word or term needs to be its own subject.
+        a whole instead of one subject for every entry in the list. Not every single word or term needs to be its own subject. As in, if a domain or topic is mentioned but not explained upon,
+        it should not make this subject list.
         Avoid redundancy in similar subjects. If a subject is a subset of another subject, only list the broader subject. Like if 
         the document mentions serverless functions and then goes on to explain AWS Lambda, you would only list serverless functions as a subject, as that topic covers Lambda.
         You're not trying to reach a word count, think more in broad strokes, don't add every single detail or vocab word as a subject."""
@@ -363,7 +362,7 @@ class LLMHandler:
         ]
 
         # First, identify the subjects in the text
-        subject_response = PrintHandler.get_structured_output(
+        subject_response, assistant_content = PrintHandler.get_structured_output(
             model,
             messages,
             subject_list_schema,
@@ -379,9 +378,12 @@ class LLMHandler:
         for subject_item in subject_list:
             subject = subject_item["subject"]
 
+            print("making subdoc for subject: ", subject)
+
             system_prompt_subdoc = f"""You are tasked with creating a sub-document for the subject: "{subject}". The sub-doc should mostly quote the original text,
             but you may paraphrase if necessary to abridge or clarify. It should explain the named subject in its entirety. Make sure not to add any external information that isn't found in the original document. 
-            Include only the text relevant to the subject. After the sub-document text, list the tags that describe the subject or concept found in the sub-document.
+            Include only the text relevant to the described subject, not text about other subjects. Those will be generated separately. The subdocument text word count is not to exceed {subdoc_word_limit}. 
+            There is no minimum length. If the subject is quickly described, that is not an issue. Just don't go beyond the limit. After the sub-document text, list the tags that describe the subject or concept found in the sub-document.
             List only the tags that describe the contents of this sub-document. There may be one or two tags, or very many tags depending on the information conatined in the text
             of the sub-document created. Tags will be used as meta-data for each sub document in a database such that if someone wanted the information in the document, it could be 
             looked up by the tags, so design your tags for that use case. Tags are lowercase alphanumeric strings with underscores. Tags are single words or phrases. If there is a multi-word tag, 
@@ -391,14 +393,14 @@ class LLMHandler:
             messages.append({"role": "system", "content": system_prompt_subdoc})
 
             # Generate sub-document for this subject
-            subdoc_response = PrintHandler.get_structured_output(
+            subdoc_response, assistant_content = PrintHandler.get_structured_output(
                 model,
                 messages,
                 subdoc_schema,
                 verbose=True,
             )
 
-            tags_possible = subdoc_response["tags"]
+            tags_possible = subdoc_response["subdoc"]["tags"]
             tags_trimmed = []
 
             for tag in tags_possible:
@@ -407,7 +409,10 @@ class LLMHandler:
                 tags_trimmed.append(tag)
 
             subdocs.append(
-                {"subdoc_text": subdoc_response["subdoc_text"], "tags": tags_trimmed}
+                {
+                    "subdoc_text": subdoc_response["subdoc"]["subdoc_text"],
+                    "tags": tags_trimmed,
+                }
             )
 
             print(tags_trimmed)
@@ -416,7 +421,7 @@ class LLMHandler:
             messages.append(
                 {
                     "role": "assistant",
-                    "content": subdoc_response["choices"][0]["message"]["content"],
+                    "content": assistant_content,
                 }
             )
 
@@ -457,7 +462,7 @@ class LLMHandler:
         You only know information present in the context or database. Your output determines if a database lookup will be performed. If it does 
         not appear necessary to perform the database lookup, say yes. If it does appear necessary, say no."""
 
-        choice_response = PrintHandler.get_structured_output(
+        choice_response, assistant_content = PrintHandler.get_structured_output(
             model,
             conversation_history
             + [{"role": "system", "content": system_prompt_choice}],
@@ -465,4 +470,4 @@ class LLMHandler:
             verbose=True,
         )
 
-        return choice_schema["choice"] == "yes"
+        return choice_response["choice"] == "no"

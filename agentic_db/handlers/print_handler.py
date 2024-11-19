@@ -2,9 +2,10 @@ from typing import List, Dict, Any
 import sys
 import json
 import shutil
+import unicodedata
 
 
-class LLMAssistant:
+class PrintHandler:
 
     def clear_lines(num_lines):
         """Move the cursor up num_lines and clear those lines."""
@@ -44,9 +45,10 @@ class LLMAssistant:
         Returns:
             Dict[str, Any]: The accumulated data as a dictionary after parsing the complete JSON.
         """
+
         response = model.create_chat_completion(
             messages=messages,
-            response_format={"type": "json", "schema": response_schema},
+            response_format={"type": "json_object", "schema": response_schema},
             stream=True,
         )
 
@@ -75,11 +77,30 @@ class LLMAssistant:
         if verbose:
             sys.stdout.write("\n")
 
-        # After streaming is complete, parse the accumulated text as JSON
         try:
             accumulated_data = json.loads(accumulated_text)
-        except json.JSONDecodeError as e:
-            print("Error parsing JSON:", e)
-            accumulated_data = {}
+        except json.JSONDecodeError:
+            try:
+                sanitized_text = PrintHandler.sanitize_json_string(accumulated_text)
+                accumulated_data = json.loads(sanitized_text)
+            except json.JSONDecodeError as e:
+                print(f"Error parsing JSON: {e}")
+                accumulated_data = {}
 
-        return accumulated_data
+        return accumulated_data, accumulated_text
+
+    def sanitize_json_string(json_string):
+        escape_map = {
+            "\n": "\\n",
+            "\r": "\\r",
+            "\t": "\\t",
+            "\b": "\\b",
+            "\f": "\\f",
+        }
+        sanitized_string = json_string.translate(str.maketrans(escape_map))
+
+        sanitized_string = "".join(
+            ch for ch in sanitized_string if unicodedata.category(ch)[0] != "C"
+        )
+
+        return sanitized_string
