@@ -153,11 +153,23 @@ class Orchestrator:
 
         elif self.mode == "chat_mode":
             self.conversation_history.append({"role": "user", "content": prompt})
+            context_messages = []
+            if len(self.conversation_history) >= 4:
+                context_messages = self.conversation_history[-4:]
+
+                enriched_prompt = "\n".join(
+                    f"{message['role']}: {message['content']}"
+                    for message in context_messages
+                )
+
+            else:
+                enriched_prompt = prompt
+
             if self.llm_handler.decide_to_respond_or_use_tool(
                 self.conversation_history
             ):
                 answer, context = self.database_query(
-                    self.conversation_history, prompt, database_title
+                    self.conversation_history, enriched_prompt, database_title
                 )
             else:
                 answer = self.llm_handler.generate_response(self.conversation_history)

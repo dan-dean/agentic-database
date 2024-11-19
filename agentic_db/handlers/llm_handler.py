@@ -285,7 +285,8 @@ class LLMHandler:
     def generate_roadmap(self, text):
         model = self.get_model()
         system_prompt = """You are a knowledge base system orchestrator module. You are provided a prompt or query, you do not answer the prompt. 
-        You are responsible for creating a functional set of steps to retrieve information from the knowledge base to best answer the prompt.
+        You are responsible for creating a functional set of steps to retrieve information from the knowledge base to best answer the last given prompt.
+        More context than the last given prompt may be submitted to you to give context, but don't repititiously create steps for anything other than the final user's query.
         You respond in json format with the steps to retrieve the information and explain what you are doing. You can query the database for 
         information. Say if the user asks for a comparison between two different concepts, you should make two individual calls to the database.
         Database queries are made via single tag or tag lists that will select matching documents about a subject or concept from the database. Tags are 
@@ -460,7 +461,8 @@ class LLMHandler:
         system_prompt_choice = """Decide if the current conversation history has the specific factual answer to the question being posed in the most recent user 
         message. If it does contain the information, say yes. If not, say no. If you are unsure at all, say no.You are not to base this decision on existing general knowledge.
         You only know information present in the context or database. Your output determines if a database lookup will be performed. If it does 
-        not appear necessary to perform the database lookup, say yes. If it does appear necessary, say no."""
+        not appear necessary to perform the database lookup, say yes. If it does appear necessary to search for more information, say no. It saves time for the user to get a response 
+        sooner if no lookup is needed, so yes is preferred if lookups have already accomplished what is needed."""
 
         choice_response, assistant_content = PrintHandler.get_structured_output(
             model,
